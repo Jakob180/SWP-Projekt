@@ -6,7 +6,9 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.security.Key;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.function.Function;
 import org.springframework.beans.factory.annotation.Value;
@@ -61,12 +63,21 @@ public class JwtService {
     }
 
     private Key getSigningKey() {
-        byte[] keyBytes;
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+
         try {
-            keyBytes = Decoders.BASE64.decode(jwtSecret);
-        } catch (IllegalArgumentException ignored) {
-            keyBytes = jwtSecret.getBytes();
+            byte[] decoded = Decoders.BASE64.decode(jwtSecret);
+            if (decoded.length >= 32) {
+                keyBytes = decoded;
+            }
+        } catch (RuntimeException ignored) {
+            // Keep UTF-8 bytes fallback
         }
+
+        if (keyBytes.length < 32) {
+            keyBytes = Arrays.copyOf(keyBytes, 32);
+        }
+
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }
