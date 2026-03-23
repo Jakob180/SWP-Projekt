@@ -124,6 +124,68 @@ header p {
   gap: 0.85rem;
 }
 
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+
+.action-card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.action-card h3 {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.action-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.action-grid label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.action-grid input,
+.action-grid select {
+  border: 1px solid #d7e5f3;
+  border-radius: 9px;
+  padding: 0.45rem;
+  background: #fff;
+}
+
+.action-card button {
+  justify-self: start;
+  border: none;
+  border-radius: 10px;
+  padding: 0.5rem 0.9rem;
+  background: linear-gradient(135deg, #0369a1, #0f766e);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.action-card button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .transactions {
   background: var(--surface-primary);
   border: 1px solid var(--border-color);
@@ -172,8 +234,19 @@ th {
   margin: 0;
 }
 
+.success {
+  color: #15803d;
+  margin: 0;
+}
+
 .loading {
   color: var(--ink-muted);
+}
+
+.split-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.85rem;
 }
 
 @media (max-width: 1120px) {

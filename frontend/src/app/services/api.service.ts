@@ -2,12 +2,15 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
+  AssetRequest,
+  Asset,
   DashboardResponse,
   DateFilter,
   FileImportResponse,
+  Subscription,
+  SubscriptionRequest,
   Transaction,
-  Asset,
-  Subscription
+  TransactionRequest
 } from '../models/api.models';
 import { API_BASE_URL } from './api.base';
 
@@ -45,6 +48,18 @@ export class ApiService {
 
   getAssets(): Observable<Asset[]> {
     return this.http.get<Asset[]>(`${API_BASE_URL}/assets`);
+  }
+
+  createTransaction(payload: TransactionRequest): Observable<Transaction> {
+    return this.http.post<Transaction>(`${API_BASE_URL}/transactions`, payload);
+  }
+
+  createSubscription(payload: SubscriptionRequest): Observable<Subscription> {
+    return this.http.post<Subscription>(`${API_BASE_URL}/subscriptions`, payload);
+  }
+
+  createAsset(payload: AssetRequest): Observable<Asset> {
+    return this.http.post<Asset>(`${API_BASE_URL}/assets`, payload);
   }
 
   uploadTransactions(file: File): Observable<FileImportResponse> {

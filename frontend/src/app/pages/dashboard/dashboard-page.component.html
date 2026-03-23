@@ -59,6 +59,71 @@
       </article>
     </section>
 
+    <section class="quick-actions">
+      <article class="action-card">
+        <h3>New Transaction</h3>
+        <div class="action-grid">
+          <label>
+            Amount
+            <input type="number" step="0.01" min="0.01" [(ngModel)]="transactionAmount" />
+          </label>
+          <label>
+            Type
+            <select [(ngModel)]="transactionType">
+              <option value="EXPENSE">Expense</option>
+              <option value="INCOME">Income</option>
+            </select>
+          </label>
+          <label>
+            Category
+            <input type="text" [(ngModel)]="transactionCategory" />
+          </label>
+          <label>
+            Date
+            <input type="date" [(ngModel)]="transactionDate" />
+          </label>
+          <label class="wide">
+            Description
+            <input type="text" [(ngModel)]="transactionDescription" />
+          </label>
+        </div>
+        <button type="button" (click)="addTransaction()" [disabled]="actionLoading">Save Transaction</button>
+      </article>
+
+      <article class="action-card">
+        <h3>New Subscription</h3>
+        <div class="action-grid">
+          <label>
+            Name
+            <input type="text" [(ngModel)]="subscriptionName" />
+          </label>
+          <label>
+            Monthly Cost
+            <input type="number" step="0.01" min="0.01" [(ngModel)]="subscriptionMonthlyCost" />
+          </label>
+        </div>
+        <button type="button" (click)="addSubscription()" [disabled]="actionLoading">Save Subscription</button>
+      </article>
+
+      <article class="action-card">
+        <h3>New Asset</h3>
+        <div class="action-grid">
+          <label>
+            Name
+            <input type="text" [(ngModel)]="assetName" />
+          </label>
+          <label>
+            Value
+            <input type="number" step="0.01" min="0" [(ngModel)]="assetValue" />
+          </label>
+        </div>
+        <button type="button" (click)="addAsset()" [disabled]="actionLoading">Save Asset</button>
+      </article>
+    </section>
+
+    <p class="success" *ngIf="actionMessage">{{ actionMessage }}</p>
+    <p class="error" *ngIf="actionError">{{ actionError }}</p>
+
     <section class="charts" *ngIf="dashboard as d">
       <app-chart-panel
         title="Expenses by Category"
@@ -121,6 +186,48 @@
           </tbody>
         </table>
       </div>
+    </section>
+
+    <section class="split-lists" *ngIf="dashboard as d">
+      <article class="transactions">
+        <h3>Subscriptions</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Monthly Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let sub of d.subscriptions">
+                <td>{{ sub.name }}</td>
+                <td>{{ formatCurrency(sub.monthlyCost) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="transactions">
+        <h3>Assets</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let asset of d.assets">
+                <td>{{ asset.name }}</td>
+                <td>{{ formatCurrency(asset.value) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
     </section>
 
     <div class="loading" *ngIf="loading">Loading dashboard...</div>

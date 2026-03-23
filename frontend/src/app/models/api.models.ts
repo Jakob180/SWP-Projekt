@@ -20,14 +20,32 @@ export interface Transaction {
   date: string;
 }
 
+export interface TransactionRequest {
+  amount: number;
+  type: TransactionType;
+  category: string;
+  description: string;
+  date: string;
+}
+
 export interface Subscription {
   id: number;
   name: string;
   monthlyCost: number;
 }
 
+export interface SubscriptionRequest {
+  name: string;
+  monthlyCost: number;
+}
+
 export interface Asset {
   id: number;
+  name: string;
+  value: number;
+}
+
+export interface AssetRequest {
   name: string;
   value: number;
 }

@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ChartPanelComponent } from '../../components/chart-panel/chart-panel.component';
 import { UploadComponent } from '../../components/upload/upload.component';
-import { DashboardResponse } from '../../models/api.models';
+import { DashboardResponse, TransactionType } from '../../models/api.models';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -19,6 +19,9 @@ export class DashboardPageComponent implements OnInit {
   dashboard?: DashboardResponse;
   loading = true;
   errorMessage = '';
+  actionMessage = '';
+  actionError = '';
+  actionLoading = false;
 
   filterMode: 'month' | 'year' | 'custom' = 'month';
   customFrom = '';
@@ -26,6 +29,18 @@ export class DashboardPageComponent implements OnInit {
 
   activeFrom = '';
   activeTo = '';
+
+  transactionAmount: number | null = null;
+  transactionType: TransactionType = 'EXPENSE';
+  transactionCategory = '';
+  transactionDescription = '';
+  transactionDate = this.todayDateString();
+
+  subscriptionName = '';
+  subscriptionMonthlyCost: number | null = null;
+
+  assetName = '';
+  assetValue: number | null = null;
 
   readonly palette = ['#0ea5e9', '#06b6d4', '#14b8a6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -72,6 +87,99 @@ export class DashboardPageComponent implements OnInit {
 
   refreshAfterImport(): void {
     this.loadDashboard(this.activeFrom, this.activeTo);
+  }
+
+  addTransaction(): void {
+    if (!this.transactionAmount || this.transactionAmount <= 0 || !this.transactionCategory.trim() || !this.transactionDate) {
+      this.actionError = 'Please fill amount, category and date for the transaction.';
+      this.actionMessage = '';
+      return;
+    }
+
+    this.actionLoading = true;
+    this.actionError = '';
+    this.actionMessage = '';
+
+    this.apiService.createTransaction({
+      amount: this.transactionAmount,
+      type: this.transactionType,
+      category: this.transactionCategory.trim(),
+      description: this.transactionDescription.trim(),
+      date: this.transactionDate
+    }).subscribe({
+      next: () => {
+        this.transactionAmount = null;
+        this.transactionCategory = '';
+        this.transactionDescription = '';
+        this.transactionType = 'EXPENSE';
+        this.transactionDate = this.todayDateString();
+        this.actionMessage = 'Transaction saved.';
+        this.actionLoading = false;
+        this.refreshAfterImport();
+      },
+      error: (error) => {
+        this.actionLoading = false;
+        this.actionError = error?.error?.message ?? 'Could not create transaction.';
+      }
+    });
+  }
+
+  addSubscription(): void {
+    if (!this.subscriptionName.trim() || !this.subscriptionMonthlyCost || this.subscriptionMonthlyCost <= 0) {
+      this.actionError = 'Please enter name and monthly cost for the subscription.';
+      this.actionMessage = '';
+      return;
+    }
+
+    this.actionLoading = true;
+    this.actionError = '';
+    this.actionMessage = '';
+
+    this.apiService.createSubscription({
+      name: this.subscriptionName.trim(),
+      monthlyCost: this.subscriptionMonthlyCost
+    }).subscribe({
+      next: () => {
+        this.subscriptionName = '';
+        this.subscriptionMonthlyCost = null;
+        this.actionMessage = 'Subscription saved.';
+        this.actionLoading = false;
+        this.refreshAfterImport();
+      },
+      error: (error) => {
+        this.actionLoading = false;
+        this.actionError = error?.error?.message ?? 'Could not create subscription.';
+      }
+    });
+  }
+
+  addAsset(): void {
+    if (!this.assetName.trim() || this.assetValue == null || this.assetValue < 0) {
+      this.actionError = 'Please enter name and value for the asset.';
+      this.actionMessage = '';
+      return;
+    }
+
+    this.actionLoading = true;
+    this.actionError = '';
+    this.actionMessage = '';
+
+    this.apiService.createAsset({
+      name: this.assetName.trim(),
+      value: this.assetValue
+    }).subscribe({
+      next: () => {
+        this.assetName = '';
+        this.assetValue = null;
+        this.actionMessage = 'Asset saved.';
+        this.actionLoading = false;
+        this.refreshAfterImport();
+      },
+      error: (error) => {
+        this.actionLoading = false;
+        this.actionError = error?.error?.message ?? 'Could not create asset.';
+      }
+    });
   }
 
   logout(): void {
@@ -147,5 +255,9 @@ export class DashboardPageComponent implements OnInit {
 
   private toDateInput(date: Date): string {
     return date.toISOString().slice(0, 10);
+  }
+
+  private todayDateString(): string {
+    return this.toDateInput(new Date());
   }
 }
