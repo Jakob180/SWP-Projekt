@@ -1,0 +1,31 @@
+<main class="auth-shell">
+  <section class="brand-panel">
+    <h1>Harbor Finance</h1>
+    <p>Secure personal banking dashboard with live insights, asset tracking, and smart imports.</p>
+  </section>
+
+  <section class="form-panel">
+    <div class="mode-toggle">
+      <button type="button" [class.active]="mode === 'login'" (click)="switchMode('login')">Login</button>
+      <button type="button" [class.active]="mode === 'register'" (click)="switchMode('register')">Register</button>
+    </div>
+
+    <form (ngSubmit)="submit()">
+      <label>
+        Username
+        <input type="text" name="username" [(ngModel)]="username" required minlength="3" />
+      </label>
+
+      <label>
+        Password
+        <input type="password" name="password" [(ngModel)]="password" required minlength="6" />
+      </label>
+
+      <button type="submit" [disabled]="loading">
+        {{ loading ? 'Please wait...' : (mode === 'login' ? 'Login' : 'Create Account') }}
+      </button>
+
+      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+    </form>
+  </section>
+</main>

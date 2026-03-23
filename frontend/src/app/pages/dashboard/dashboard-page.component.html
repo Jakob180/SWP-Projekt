@@ -1,0 +1,128 @@
+<div class="dashboard-layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <h2>Harbor Finance</h2>
+      <p>{{ username || 'Signed in user' }}</p>
+    </div>
+
+    <div class="filters">
+      <h3>Date Filter</h3>
+      <button type="button" [class.active]="filterMode === 'month'" (click)="applyPreset('month')">Current Month</button>
+      <button type="button" [class.active]="filterMode === 'year'" (click)="applyPreset('year')">Current Year</button>
+
+      <div class="custom-range">
+        <label>
+          From
+          <input type="date" [(ngModel)]="customFrom" />
+        </label>
+        <label>
+          To
+          <input type="date" [(ngModel)]="customTo" />
+        </label>
+        <button type="button" (click)="applyCustomRange()">Apply Custom Range</button>
+      </div>
+    </div>
+
+    <app-upload (importFinished)="refreshAfterImport()"></app-upload>
+
+    <button class="logout" type="button" (click)="logout()">Logout</button>
+  </aside>
+
+  <main class="main-content">
+    <header>
+      <h1>Banking Dashboard</h1>
+      <p>Overview from {{ activeFrom }} to {{ activeTo }}</p>
+    </header>
+
+    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <section class="cards" *ngIf="dashboard as d">
+      <article>
+        <h4>Total Balance</h4>
+        <strong>{{ formatCurrency(d.totalBalance) }}</strong>
+      </article>
+      <article>
+        <h4>Total Income</h4>
+        <strong>{{ formatCurrency(d.totalIncome) }}</strong>
+      </article>
+      <article>
+        <h4>Total Expenses</h4>
+        <strong>{{ formatCurrency(d.totalExpenses) }}</strong>
+      </article>
+      <article>
+        <h4>Subscriptions</h4>
+        <strong>{{ formatCurrency(d.totalSubscriptions) }}</strong>
+      </article>
+      <article>
+        <h4>Assets</h4>
+        <strong>{{ formatCurrency(d.totalAssets) }}</strong>
+      </article>
+    </section>
+
+    <section class="charts" *ngIf="dashboard as d">
+      <app-chart-panel
+        title="Expenses by Category"
+        chartType="pie"
+        [labels]="expenseLabels"
+        [datasets]="[{ label: 'Expenses', data: expenseData, backgroundColor: palette }]"
+      ></app-chart-panel>
+
+      <app-chart-panel
+        title="Asset Distribution"
+        chartType="pie"
+        [labels]="assetLabels"
+        [datasets]="[{ label: 'Assets', data: assetData, backgroundColor: palette }]"
+      ></app-chart-panel>
+
+      <app-chart-panel
+        title="Monthly Overview"
+        chartType="bar"
+        [labels]="monthlyLabels"
+        [datasets]="[
+          { label: 'Income', data: monthlyIncomeData, backgroundColor: '#16a34a', borderColor: '#15803d' },
+          { label: 'Expenses', data: monthlyExpenseData, backgroundColor: '#dc2626', borderColor: '#b91c1c' }
+        ]"
+      ></app-chart-panel>
+
+      <app-chart-panel
+        title="Yearly Overview"
+        chartType="line"
+        [labels]="yearlyLabels"
+        [datasets]="[
+          { label: 'Income', data: yearlyIncomeData, borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.2)' },
+          { label: 'Expenses', data: yearlyExpenseData, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.2)' }
+        ]"
+      ></app-chart-panel>
+    </section>
+
+    <section class="transactions" *ngIf="dashboard as d">
+      <h3>Transactions</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Type</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let tx of d.transactions">
+              <td>{{ tx.date }}</td>
+              <td>{{ tx.category }}</td>
+              <td>{{ tx.description || '-' }}</td>
+              <td>
+                <span [class.income]="tx.type === 'INCOME'" [class.expense]="tx.type === 'EXPENSE'">{{ tx.type }}</span>
+              </td>
+              <td>{{ formatCurrency(tx.amount) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="loading" *ngIf="loading">Loading dashboard...</div>
+  </main>
+</div>

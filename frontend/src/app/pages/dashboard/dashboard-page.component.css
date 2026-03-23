@@ -1,0 +1,183 @@
+.dashboard-layout {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(260px, 300px) 1fr;
+  background: var(--background-app);
+  color: var(--ink-strong);
+}
+
+.sidebar {
+  background: linear-gradient(180deg, #0f172a, #155e75);
+  color: #f8fafc;
+  padding: 1.1rem;
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.brand h2 {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.brand p {
+  margin: 0.2rem 0 0;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.filters {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.filters h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #bae6fd;
+}
+
+.filters > button,
+.custom-range button,
+.logout {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filters > button.active {
+  background: #0284c7;
+  border-color: #7dd3fc;
+}
+
+.custom-range {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.2rem;
+}
+
+.custom-range label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.83rem;
+}
+
+.custom-range input {
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem;
+}
+
+.logout {
+  text-align: center;
+  margin-top: 0.3rem;
+}
+
+.main-content {
+  padding: clamp(1rem, 2vw, 1.8rem);
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+header h1 {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+header p {
+  margin: 0.3rem 0 0;
+  color: var(--ink-muted);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.8rem;
+}
+
+.cards article {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0.8rem;
+}
+
+.cards h4 {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+}
+
+.cards strong {
+  margin-top: 0.3rem;
+  display: block;
+  font-size: 1.05rem;
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.85rem;
+}
+
+.transactions {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0.8rem;
+}
+
+.transactions h3 {
+  margin: 0 0 0.8rem;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.52rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+th {
+  color: #334155;
+  font-size: 0.85rem;
+}
+
+.income {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.expense {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.error {
+  color: #b91c1c;
+  margin: 0;
+}
+
+.loading {
+  color: var(--ink-muted);
+}
+
+@media (max-width: 1120px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
