@@ -1,16 +1,16 @@
 .chart-panel {
-  background: var(--surface-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 18px;
-  padding: 1rem;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 16px;
+  padding: 0.95rem;
   min-height: 320px;
-  box-shadow: 0 14px 34px rgba(8, 15, 40, 0.08);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.07);
 }
 
 header {
   font-family: 'Space Grotesk', sans-serif;
   font-size: 1rem;
-  color: var(--ink-strong);
+  color: #0f172a;
   margin-bottom: 0.8rem;
 }
 
