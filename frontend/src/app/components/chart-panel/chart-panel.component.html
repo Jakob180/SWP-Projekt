@@ -2,5 +2,6 @@
   <header>{{ title }}</header>
   <div class="canvas-wrapper">
     <canvas #chartCanvas></canvas>
+    <div class="empty-state" *ngIf="!hasData()">{{ emptyMessage }}</div>
   </div>
 </section>

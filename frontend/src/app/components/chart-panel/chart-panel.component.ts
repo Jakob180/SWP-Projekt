@@ -8,6 +8,7 @@ import {
   SimpleChanges,
   ViewChild
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Chart, ChartType, registerables } from 'chart.js';
 
 Chart.register(...registerables);
@@ -23,6 +24,7 @@ export interface ChartPanelDataset {
 @Component({
   selector: 'app-chart-panel',
   standalone: true,
+  imports: [CommonModule],
   templateUrl: './chart-panel.component.html',
   styleUrl: './chart-panel.component.css'
 })
@@ -33,6 +35,7 @@ export class ChartPanelComponent implements AfterViewInit, OnChanges, OnDestroy 
   @Input() chartType: ChartType = 'pie';
   @Input() labels: string[] = [];
   @Input() datasets: ChartPanelDataset[] = [];
+  @Input() emptyMessage = 'Keine Daten fuer diesen Zeitraum vorhanden.';
 
   private chart?: Chart;
 
@@ -50,6 +53,12 @@ export class ChartPanelComponent implements AfterViewInit, OnChanges, OnDestroy 
 
   private renderChart(): void {
     if (!this.chartCanvas?.nativeElement) {
+      return;
+    }
+
+    if (!this.hasData()) {
+      this.chart?.destroy();
+      this.chart = undefined;
       return;
     }
 
@@ -78,5 +87,13 @@ export class ChartPanelComponent implements AfterViewInit, OnChanges, OnDestroy 
         }
       }
     });
+  }
+
+  hasData(): boolean {
+    if (this.labels.length === 0) {
+      return false;
+    }
+
+    return this.datasets.some((dataset) => dataset.data.length > 0);
   }
 }

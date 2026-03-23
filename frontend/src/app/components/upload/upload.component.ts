@@ -28,7 +28,7 @@ export class UploadComponent {
 
   upload(): void {
     if (!this.selectedFile) {
-      this.errorMessage = 'Please select a CSV or JSON file first.';
+      this.errorMessage = 'Bitte zuerst eine CSV- oder JSON-Datei auswaehlen.';
       return;
     }
 
@@ -39,13 +39,13 @@ export class UploadComponent {
     this.apiService.uploadTransactions(this.selectedFile).subscribe({
       next: (response) => {
         this.isUploading = false;
-        this.successMessage = `Imported ${response.importedTransactions} transactions.`;
+        this.successMessage = `${response.importedTransactions} Transaktionen importiert.`;
         this.selectedFile = null;
         this.importFinished.emit();
       },
       error: (error) => {
         this.isUploading = false;
-        this.errorMessage = error?.error?.message ?? 'Import failed. Please check your file format.';
+        this.errorMessage = error?.error?.message ?? 'Import fehlgeschlagen. Bitte Dateiformat pruefen.';
       }
     });
   }

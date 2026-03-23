@@ -1,185 +1,291 @@
-<div class="dashboard-layout">
-  <aside class="sidebar">
+<div class="dashboard-layout" [class.sidebar-collapsed]="sidebarCollapsed">
+  <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
     <div class="brand">
-      <h2>Harbor Finance</h2>
-      <p>{{ username || 'Signed in user' }}</p>
+      <div class="brand-head">
+        <h2>Harbor Finance</h2>
+        <button
+          type="button"
+          class="sidebar-toggle"
+          (click)="toggleSidebar()"
+          [attr.aria-label]="sidebarCollapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'"
+          [attr.title]="sidebarCollapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'"
+        >
+          {{ sidebarCollapsed ? '☰' : '✕' }}
+        </button>
+      </div>
+      <p>{{ username || 'Angemeldet' }}</p>
     </div>
 
-    <div class="filters">
-      <h3>Date Filter</h3>
-      <button type="button" [class.active]="filterMode === 'month'" (click)="applyPreset('month')">Current Month</button>
-      <button type="button" [class.active]="filterMode === 'year'" (click)="applyPreset('year')">Current Year</button>
+    <section class="sidebar-card nav-card">
+      <h3>Navigation</h3>
+      <nav class="sidebar-nav">
+        <button
+          type="button"
+          *ngFor="let item of sidebarNavItems"
+          [class.active]="activeView === item.id"
+          (click)="setView(item.id)"
+          [attr.title]="item.label"
+        >
+          <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span>
+          <span class="title">{{ sidebarCollapsed ? item.shortLabel : item.label }}</span>
+          <span class="description" *ngIf="!sidebarCollapsed">{{ item.description }}</span>
+        </button>
+      </nav>
+
+      <div class="period-quick-switch" *ngIf="activeView === 'period' && !sidebarCollapsed">
+        <p>Zeitraum schnell wechseln</p>
+        <div class="mini-switch">
+          <button type="button" [class.active]="trendGranularity === 'week'" (click)="setTrendGranularity('week')">Woche</button>
+          <button type="button" [class.active]="trendGranularity === 'month'" (click)="setTrendGranularity('month')">Monat</button>
+          <button type="button" [class.active]="trendGranularity === 'year'" (click)="setTrendGranularity('year')">Jahr</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sidebar-card filters">
+      <h3>Zeitraumfilter</h3>
+      <button type="button" [class.active]="filterMode === 'month'" (click)="applyPreset('month')">Aktueller Monat</button>
+      <button type="button" [class.active]="filterMode === 'year'" (click)="applyPreset('year')">Aktuelles Jahr</button>
 
       <div class="custom-range">
         <label>
-          From
+          Von
           <input type="date" [(ngModel)]="customFrom" />
         </label>
         <label>
-          To
+          Bis
           <input type="date" [(ngModel)]="customTo" />
         </label>
-        <button type="button" (click)="applyCustomRange()">Apply Custom Range</button>
+        <button type="button" (click)="applyCustomRange()">Zeitraum anwenden</button>
       </div>
-    </div>
+    </section>
 
     <app-upload (importFinished)="refreshAfterImport()"></app-upload>
 
-    <button class="logout" type="button" (click)="logout()">Logout</button>
+    <button class="logout" type="button" (click)="logout()">Abmelden</button>
   </aside>
 
   <main class="main-content">
     <header>
-      <h1>Banking Dashboard</h1>
-      <p>Overview from {{ activeFrom }} to {{ activeTo }}</p>
+      <p class="kicker">Harbor Finance</p>
+      <h1>{{ currentViewTitle }}</h1>
+      <p>{{ currentViewSubtitle }}</p>
     </header>
 
     <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
     <section class="cards" *ngIf="dashboard as d">
-      <article>
-        <h4>Total Balance</h4>
-        <strong>{{ formatCurrency(d.totalBalance) }}</strong>
-      </article>
-      <article>
-        <h4>Total Income</h4>
-        <strong>{{ formatCurrency(d.totalIncome) }}</strong>
-      </article>
-      <article>
-        <h4>Total Expenses</h4>
-        <strong>{{ formatCurrency(d.totalExpenses) }}</strong>
-      </article>
-      <article>
-        <h4>Subscriptions</h4>
-        <strong>{{ formatCurrency(d.totalSubscriptions) }}</strong>
-      </article>
-      <article>
-        <h4>Assets</h4>
-        <strong>{{ formatCurrency(d.totalAssets) }}</strong>
-      </article>
+      <ng-container [ngSwitch]="activeView">
+        <ng-container *ngSwitchCase="'income'">
+          <article>
+            <h4>Einnahmen gesamt</h4>
+            <strong>{{ formatCurrency(d.totalIncome) }}</strong>
+          </article>
+          <article>
+            <h4>Kontostand gesamt</h4>
+            <strong>{{ formatCurrency(d.totalBalance) }}</strong>
+          </article>
+          <article>
+            <h4>Vermoegen</h4>
+            <strong>{{ formatCurrency(d.totalAssets) }}</strong>
+          </article>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'expense'">
+          <article>
+            <h4>Ausgaben gesamt</h4>
+            <strong>{{ formatCurrency(d.totalExpenses) }}</strong>
+          </article>
+          <article>
+            <h4>Abos</h4>
+            <strong>{{ formatCurrency(d.totalSubscriptions) }}</strong>
+          </article>
+          <article>
+            <h4>Kontostand gesamt</h4>
+            <strong>{{ formatCurrency(d.totalBalance) }}</strong>
+          </article>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'period'">
+          <article>
+            <h4>Kontostand gesamt</h4>
+            <strong>{{ formatCurrency(d.totalBalance) }}</strong>
+          </article>
+          <article>
+            <h4>Einnahmen gesamt</h4>
+            <strong>{{ formatCurrency(d.totalIncome) }}</strong>
+          </article>
+          <article>
+            <h4>Ausgaben gesamt</h4>
+            <strong>{{ formatCurrency(d.totalExpenses) }}</strong>
+          </article>
+        </ng-container>
+
+        <ng-container *ngSwitchDefault>
+          <article>
+            <h4>Kontostand gesamt</h4>
+            <strong>{{ formatCurrency(d.totalBalance) }}</strong>
+          </article>
+          <article>
+            <h4>Einnahmen gesamt</h4>
+            <strong>{{ formatCurrency(d.totalIncome) }}</strong>
+          </article>
+          <article>
+            <h4>Ausgaben gesamt</h4>
+            <strong>{{ formatCurrency(d.totalExpenses) }}</strong>
+          </article>
+          <article>
+            <h4>Abos</h4>
+            <strong>{{ formatCurrency(d.totalSubscriptions) }}</strong>
+          </article>
+          <article>
+            <h4>Vermoegen</h4>
+            <strong>{{ formatCurrency(d.totalAssets) }}</strong>
+          </article>
+        </ng-container>
+      </ng-container>
     </section>
 
-    <section class="quick-actions">
+    <section class="quick-actions" *ngIf="activeView !== 'period'">
       <article class="action-card">
-        <h3>New Transaction</h3>
+        <h3>Neue Transaktion</h3>
         <div class="action-grid">
           <label>
-            Amount
+            Betrag
             <input type="number" step="0.01" min="0.01" [(ngModel)]="transactionAmount" />
           </label>
           <label>
-            Type
+            Typ
             <select [(ngModel)]="transactionType">
-              <option value="EXPENSE">Expense</option>
-              <option value="INCOME">Income</option>
+              <option value="EXPENSE">Ausgabe</option>
+              <option value="INCOME">Einnahme</option>
             </select>
           </label>
           <label>
-            Category
+            Kategorie
             <input type="text" [(ngModel)]="transactionCategory" />
           </label>
           <label>
-            Date
+            Datum
             <input type="date" [(ngModel)]="transactionDate" />
           </label>
           <label class="wide">
-            Description
+            Beschreibung
             <input type="text" [(ngModel)]="transactionDescription" />
           </label>
         </div>
-        <button type="button" (click)="addTransaction()" [disabled]="actionLoading">Save Transaction</button>
+        <button type="button" (click)="addTransaction()" [disabled]="actionLoading">Transaktion speichern</button>
       </article>
 
       <article class="action-card">
-        <h3>New Subscription</h3>
+        <h3>Neues Abo</h3>
         <div class="action-grid">
           <label>
             Name
             <input type="text" [(ngModel)]="subscriptionName" />
           </label>
           <label>
-            Monthly Cost
+            Monatliche Kosten
             <input type="number" step="0.01" min="0.01" [(ngModel)]="subscriptionMonthlyCost" />
           </label>
         </div>
-        <button type="button" (click)="addSubscription()" [disabled]="actionLoading">Save Subscription</button>
+        <button type="button" (click)="addSubscription()" [disabled]="actionLoading">Abo speichern</button>
       </article>
 
       <article class="action-card">
-        <h3>New Asset</h3>
+        <h3>Neues Asset</h3>
         <div class="action-grid">
           <label>
             Name
             <input type="text" [(ngModel)]="assetName" />
           </label>
           <label>
-            Value
+            Wert
             <input type="number" step="0.01" min="0" [(ngModel)]="assetValue" />
           </label>
         </div>
-        <button type="button" (click)="addAsset()" [disabled]="actionLoading">Save Asset</button>
+        <button type="button" (click)="addAsset()" [disabled]="actionLoading">Asset speichern</button>
       </article>
     </section>
 
     <p class="success" *ngIf="actionMessage">{{ actionMessage }}</p>
     <p class="error" *ngIf="actionError">{{ actionError }}</p>
 
-    <section class="charts" *ngIf="dashboard as d">
+    <section class="insights-head" *ngIf="dashboard && showPeriodSections">
+      <h2>Visuelle Auswertung</h2>
+      <div class="granularity-switch">
+        <button type="button" [class.active]="trendGranularity === 'week'" (click)="setTrendGranularity('week')">Woche</button>
+        <button type="button" [class.active]="trendGranularity === 'month'" (click)="setTrendGranularity('month')">Monat</button>
+        <button type="button" [class.active]="trendGranularity === 'year'" (click)="setTrendGranularity('year')">Jahr</button>
+      </div>
+    </section>
+
+    <section class="charts" *ngIf="dashboard">
       <app-chart-panel
-        title="Expenses by Category"
+        *ngIf="showExpenseSections"
+        title="Ausgaben nach Kategorie"
         chartType="pie"
-        [labels]="expenseLabels"
-        [datasets]="[{ label: 'Expenses', data: expenseData, backgroundColor: palette }]"
+        [labels]="expenseCategoryLabels"
+        [datasets]="[{ label: 'Ausgaben', data: expenseCategoryData, backgroundColor: expensePalette }]"
+        emptyMessage="Keine Ausgaben in diesem Zeitraum."
       ></app-chart-panel>
 
       <app-chart-panel
-        title="Asset Distribution"
+        *ngIf="showIncomeSections"
+        title="Einnahmen nach Kategorie"
         chartType="pie"
-        [labels]="assetLabels"
-        [datasets]="[{ label: 'Assets', data: assetData, backgroundColor: palette }]"
+        [labels]="incomeCategoryLabels"
+        [datasets]="[{ label: 'Einnahmen', data: incomeCategoryData, backgroundColor: incomePalette }]"
+        emptyMessage="Keine Einnahmen in diesem Zeitraum."
       ></app-chart-panel>
 
       <app-chart-panel
-        title="Monthly Overview"
+        *ngIf="showAssetSections"
+        title="Vermoegensverteilung"
+        chartType="pie"
+        [labels]="assetChartLabels"
+        [datasets]="[{ label: 'Vermoegen', data: assetChartData, backgroundColor: palette }]"
+        emptyMessage="Noch keine Assets vorhanden."
+      ></app-chart-panel>
+
+      <app-chart-panel
+        *ngIf="showPeriodSections"
+        class="trend-panel"
+        title="Cashflow im Zeitverlauf ({{ trendGranularityLabel }})"
         chartType="bar"
-        [labels]="monthlyLabels"
+        [labels]="trendLabels"
         [datasets]="[
-          { label: 'Income', data: monthlyIncomeData, backgroundColor: '#16a34a', borderColor: '#15803d' },
-          { label: 'Expenses', data: monthlyExpenseData, backgroundColor: '#dc2626', borderColor: '#b91c1c' }
+          { label: 'Einnahmen', data: trendIncomeData, backgroundColor: '#22c55e', borderColor: '#16a34a' },
+          { label: 'Ausgaben', data: trendExpenseData, backgroundColor: '#ef4444', borderColor: '#dc2626' },
+          { label: 'Saldo', data: trendNetData, backgroundColor: '#0ea5e9', borderColor: '#0284c7' }
         ]"
-      ></app-chart-panel>
-
-      <app-chart-panel
-        title="Yearly Overview"
-        chartType="line"
-        [labels]="yearlyLabels"
-        [datasets]="[
-          { label: 'Income', data: yearlyIncomeData, borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.2)' },
-          { label: 'Expenses', data: yearlyExpenseData, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.2)' }
-        ]"
+        emptyMessage="Keine Verlaufsdaten fuer diesen Zeitraum."
       ></app-chart-panel>
     </section>
 
-    <section class="transactions" *ngIf="dashboard as d">
-      <h3>Transactions</h3>
+    <section class="transactions" *ngIf="dashboard">
+      <h3>{{ transactionsTitle }}</h3>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Category</th>
-              <th>Description</th>
-              <th>Type</th>
-              <th>Amount</th>
+              <th>Datum</th>
+              <th>Kategorie</th>
+              <th>Beschreibung</th>
+              <th>Typ</th>
+              <th>Betrag</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let tx of d.transactions">
+            <tr *ngIf="filteredTransactions.length === 0">
+              <td colspan="5" class="empty-row">{{ emptyTransactionsMessage }}</td>
+            </tr>
+            <tr *ngFor="let tx of filteredTransactions">
               <td>{{ tx.date }}</td>
               <td>{{ tx.category }}</td>
               <td>{{ tx.description || '-' }}</td>
               <td>
-                <span [class.income]="tx.type === 'INCOME'" [class.expense]="tx.type === 'EXPENSE'">{{ tx.type }}</span>
+                <span [class.income]="tx.type === 'INCOME'" [class.expense]="tx.type === 'EXPENSE'">{{ getTransactionTypeLabel(tx.type) }}</span>
               </td>
               <td>{{ formatCurrency(tx.amount) }}</td>
             </tr>
@@ -188,19 +294,19 @@
       </div>
     </section>
 
-    <section class="split-lists" *ngIf="dashboard as d">
+    <section class="split-lists" *ngIf="showOverviewSections && dashboard">
       <article class="transactions">
-        <h3>Subscriptions</h3>
+        <h3>Abos</h3>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Monthly Cost</th>
+                <th>Monatliche Kosten</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let sub of d.subscriptions">
+              <tr *ngFor="let sub of dashboard.subscriptions">
                 <td>{{ sub.name }}</td>
                 <td>{{ formatCurrency(sub.monthlyCost) }}</td>
               </tr>
@@ -210,17 +316,17 @@
       </article>
 
       <article class="transactions">
-        <h3>Assets</h3>
+        <h3>Vermoegen</h3>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Value</th>
+                <th>Wert</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let asset of d.assets">
+              <tr *ngFor="let asset of dashboard.assets">
                 <td>{{ asset.name }}</td>
                 <td>{{ formatCurrency(asset.value) }}</td>
               </tr>
@@ -230,6 +336,6 @@
       </article>
     </section>
 
-    <div class="loading" *ngIf="loading">Loading dashboard...</div>
+    <div class="loading" *ngIf="loading">Dashboard wird geladen...</div>
   </main>
 </div>

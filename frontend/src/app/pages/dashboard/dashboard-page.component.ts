@@ -4,9 +4,19 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ChartPanelComponent } from '../../components/chart-panel/chart-panel.component';
 import { UploadComponent } from '../../components/upload/upload.component';
-import { DashboardResponse, TransactionType } from '../../models/api.models';
+import { DashboardResponse, Transaction, TransactionType } from '../../models/api.models';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+
+type DashboardView = 'overview' | 'income' | 'expense' | 'period';
+
+interface SidebarNavItem {
+  id: DashboardView;
+  label: string;
+  shortLabel: string;
+  icon: string;
+  description: string;
+}
 
 @Component({
   selector: 'app-dashboard-page',
@@ -16,6 +26,8 @@ import { AuthService } from '../../services/auth.service';
   styleUrl: './dashboard-page.component.css'
 })
 export class DashboardPageComponent implements OnInit {
+  private static readonly MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
   dashboard?: DashboardResponse;
   loading = true;
   errorMessage = '';
@@ -42,7 +54,31 @@ export class DashboardPageComponent implements OnInit {
   assetName = '';
   assetValue: number | null = null;
 
+  sidebarCollapsed = true;
+  activeView: DashboardView = 'overview';
+  trendGranularity: 'week' | 'month' | 'year' = 'month';
+
+  expenseCategoryLabels: string[] = [];
+  expenseCategoryData: number[] = [];
+  incomeCategoryLabels: string[] = [];
+  incomeCategoryData: number[] = [];
+  assetChartLabels: string[] = [];
+  assetChartData: number[] = [];
+
+  trendLabels: string[] = [];
+  trendIncomeData: number[] = [];
+  trendExpenseData: number[] = [];
+  trendNetData: number[] = [];
+
   readonly palette = ['#0ea5e9', '#06b6d4', '#14b8a6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
+  readonly incomePalette = ['#22c55e', '#16a34a', '#84cc16', '#2dd4bf', '#38bdf8', '#4ade80'];
+  readonly expensePalette = ['#ef4444', '#f97316', '#f59e0b', '#e11d48', '#fb7185', '#dc2626'];
+  readonly sidebarNavItems: SidebarNavItem[] = [
+    { id: 'overview', label: 'Uebersicht', shortLabel: 'Ue', icon: 'U', description: 'Alle Kennzahlen und Diagramme' },
+    { id: 'income', label: 'Einnahmen', shortLabel: 'Ein', icon: '+', description: 'Nur Einnahmen und Trends' },
+    { id: 'expense', label: 'Ausgaben', shortLabel: 'Aus', icon: '-', description: 'Nur Ausgaben und Trends' },
+    { id: 'period', label: 'Zeitraum', shortLabel: 'Zeit', icon: 'Z', description: 'Woche, Monat oder Jahr vergleichen' }
+  ];
 
   constructor(
     private readonly apiService: ApiService,
@@ -56,6 +92,116 @@ export class DashboardPageComponent implements OnInit {
 
   get username(): string {
     return this.authService.getUsername();
+  }
+
+  get currentViewTitle(): string {
+    switch (this.activeView) {
+      case 'income':
+        return 'Einnahmen';
+      case 'expense':
+        return 'Ausgaben';
+      case 'period':
+        return 'Zeitraumanalyse';
+      default:
+        return 'Dashboard';
+    }
+  }
+
+  get currentViewSubtitle(): string {
+    const fromLabel = this.formatDateLabel(this.activeFrom);
+    const toLabel = this.formatDateLabel(this.activeTo);
+
+    if (this.activeView === 'period') {
+      return `Vergleich auf ${this.trendGranularityLabel}-Basis vom ${fromLabel} bis ${toLabel}`;
+    }
+
+    if (this.activeView === 'income') {
+      return `Einnahmen vom ${fromLabel} bis ${toLabel}`;
+    }
+
+    if (this.activeView === 'expense') {
+      return `Ausgaben vom ${fromLabel} bis ${toLabel}`;
+    }
+
+    return `Uebersicht vom ${fromLabel} bis ${toLabel}`;
+  }
+
+  get showOverviewSections(): boolean {
+    return this.activeView === 'overview';
+  }
+
+  get showIncomeSections(): boolean {
+    return this.activeView === 'overview' || this.activeView === 'income';
+  }
+
+  get showExpenseSections(): boolean {
+    return this.activeView === 'overview' || this.activeView === 'expense';
+  }
+
+  get showAssetSections(): boolean {
+    return this.activeView === 'overview';
+  }
+
+  get showPeriodSections(): boolean {
+    return this.activeView === 'overview' || this.activeView === 'period';
+  }
+
+  get filteredTransactions(): Transaction[] {
+    const transactions = this.dashboard?.transactions ?? [];
+
+    if (this.activeView === 'income') {
+      return transactions.filter((transaction) => transaction.type === 'INCOME');
+    }
+
+    if (this.activeView === 'expense') {
+      return transactions.filter((transaction) => transaction.type === 'EXPENSE');
+    }
+
+    return transactions;
+  }
+
+  get transactionsTitle(): string {
+    if (this.activeView === 'income') {
+      return 'Einnahmen';
+    }
+
+    if (this.activeView === 'expense') {
+      return 'Ausgaben';
+    }
+
+    return 'Transaktionen';
+  }
+
+  get emptyTransactionsMessage(): string {
+    if (this.activeView === 'income') {
+      return 'Keine Einnahmen in diesem Zeitraum.';
+    }
+
+    if (this.activeView === 'expense') {
+      return 'Keine Ausgaben in diesem Zeitraum.';
+    }
+
+    return 'Keine Transaktionen in diesem Zeitraum.';
+  }
+
+  get trendGranularityLabel(): string {
+    return this.trendGranularity === 'week'
+      ? 'Woche'
+      : this.trendGranularity === 'month'
+        ? 'Monat'
+        : 'Jahr';
+  }
+
+  setView(view: DashboardView): void {
+    this.activeView = view;
+  }
+
+  toggleSidebar(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
+  getTransactionTypeLabel(type: TransactionType): string {
+    return type === 'INCOME' ? 'Einnahme' : 'Ausgabe';
   }
 
   applyPreset(mode: 'month' | 'year'): void {
@@ -78,7 +224,7 @@ export class DashboardPageComponent implements OnInit {
   applyCustomRange(): void {
     this.filterMode = 'custom';
     if (!this.customFrom || !this.customTo) {
-      this.errorMessage = 'Please provide both custom dates.';
+      this.errorMessage = 'Bitte gib sowohl ein Start- als auch ein Enddatum an.';
       return;
     }
 
@@ -89,9 +235,14 @@ export class DashboardPageComponent implements OnInit {
     this.loadDashboard(this.activeFrom, this.activeTo);
   }
 
+  setTrendGranularity(granularity: 'week' | 'month' | 'year'): void {
+    this.trendGranularity = granularity;
+    this.buildTrendSeries(this.dashboard?.transactions ?? []);
+  }
+
   addTransaction(): void {
     if (!this.transactionAmount || this.transactionAmount <= 0 || !this.transactionCategory.trim() || !this.transactionDate) {
-      this.actionError = 'Please fill amount, category and date for the transaction.';
+      this.actionError = 'Bitte Betrag, Kategorie und Datum fuer die Transaktion ausfuellen.';
       this.actionMessage = '';
       return;
     }
@@ -113,20 +264,20 @@ export class DashboardPageComponent implements OnInit {
         this.transactionDescription = '';
         this.transactionType = 'EXPENSE';
         this.transactionDate = this.todayDateString();
-        this.actionMessage = 'Transaction saved.';
+        this.actionMessage = 'Transaktion gespeichert.';
         this.actionLoading = false;
         this.refreshAfterImport();
       },
       error: (error) => {
         this.actionLoading = false;
-        this.actionError = error?.error?.message ?? 'Could not create transaction.';
+        this.actionError = error?.error?.message ?? 'Transaktion konnte nicht gespeichert werden.';
       }
     });
   }
 
   addSubscription(): void {
     if (!this.subscriptionName.trim() || !this.subscriptionMonthlyCost || this.subscriptionMonthlyCost <= 0) {
-      this.actionError = 'Please enter name and monthly cost for the subscription.';
+      this.actionError = 'Bitte Name und monatliche Kosten fuer das Abo angeben.';
       this.actionMessage = '';
       return;
     }
@@ -142,20 +293,20 @@ export class DashboardPageComponent implements OnInit {
       next: () => {
         this.subscriptionName = '';
         this.subscriptionMonthlyCost = null;
-        this.actionMessage = 'Subscription saved.';
+        this.actionMessage = 'Abo gespeichert.';
         this.actionLoading = false;
         this.refreshAfterImport();
       },
       error: (error) => {
         this.actionLoading = false;
-        this.actionError = error?.error?.message ?? 'Could not create subscription.';
+        this.actionError = error?.error?.message ?? 'Abo konnte nicht gespeichert werden.';
       }
     });
   }
 
   addAsset(): void {
     if (!this.assetName.trim() || this.assetValue == null || this.assetValue < 0) {
-      this.actionError = 'Please enter name and value for the asset.';
+      this.actionError = 'Bitte Name und Wert fuer das Asset angeben.';
       this.actionMessage = '';
       return;
     }
@@ -171,13 +322,13 @@ export class DashboardPageComponent implements OnInit {
       next: () => {
         this.assetName = '';
         this.assetValue = null;
-        this.actionMessage = 'Asset saved.';
+        this.actionMessage = 'Asset gespeichert.';
         this.actionLoading = false;
         this.refreshAfterImport();
       },
       error: (error) => {
         this.actionLoading = false;
-        this.actionError = error?.error?.message ?? 'Could not create asset.';
+        this.actionError = error?.error?.message ?? 'Asset konnte nicht gespeichert werden.';
       }
     });
   }
@@ -188,51 +339,11 @@ export class DashboardPageComponent implements OnInit {
   }
 
   formatCurrency(value: number): string {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-AT', {
       style: 'currency',
       currency: 'EUR',
       maximumFractionDigits: 2
     }).format(value ?? 0);
-  }
-
-  get expenseLabels(): string[] {
-    return this.dashboard?.expenseByCategory.map((item) => item.label) ?? [];
-  }
-
-  get expenseData(): number[] {
-    return this.dashboard?.expenseByCategory.map((item) => item.value) ?? [];
-  }
-
-  get assetLabels(): string[] {
-    return this.dashboard?.assetsByName.map((item) => item.label) ?? [];
-  }
-
-  get assetData(): number[] {
-    return this.dashboard?.assetsByName.map((item) => item.value) ?? [];
-  }
-
-  get monthlyLabels(): string[] {
-    return this.dashboard?.monthlyOverview.map((item) => item.month) ?? [];
-  }
-
-  get monthlyIncomeData(): number[] {
-    return this.dashboard?.monthlyOverview.map((item) => item.income) ?? [];
-  }
-
-  get monthlyExpenseData(): number[] {
-    return this.dashboard?.monthlyOverview.map((item) => item.expense) ?? [];
-  }
-
-  get yearlyLabels(): string[] {
-    return this.dashboard?.yearlyOverview.map((item) => String(item.year)) ?? [];
-  }
-
-  get yearlyIncomeData(): number[] {
-    return this.dashboard?.yearlyOverview.map((item) => item.income) ?? [];
-  }
-
-  get yearlyExpenseData(): number[] {
-    return this.dashboard?.yearlyOverview.map((item) => item.expense) ?? [];
   }
 
   private loadDashboard(from: string, to: string): void {
@@ -244,11 +355,12 @@ export class DashboardPageComponent implements OnInit {
     this.apiService.getDashboard({ from, to }).subscribe({
       next: (dashboard) => {
         this.dashboard = dashboard;
+        this.rebuildVisualSeries();
         this.loading = false;
       },
       error: (error) => {
         this.loading = false;
-        this.errorMessage = error?.error?.message ?? 'Could not load dashboard data.';
+        this.errorMessage = error?.error?.message ?? 'Dashboard-Daten konnten nicht geladen werden.';
       }
     });
   }
@@ -259,5 +371,132 @@ export class DashboardPageComponent implements OnInit {
 
   private todayDateString(): string {
     return this.toDateInput(new Date());
+  }
+
+  private formatDateLabel(dateRaw: string): string {
+    if (!dateRaw) {
+      return '-';
+    }
+
+    const date = new Date(`${dateRaw}T12:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      return dateRaw;
+    }
+
+    return new Intl.DateTimeFormat('de-AT').format(date);
+  }
+
+  private rebuildVisualSeries(): void {
+    const transactions = this.dashboard?.transactions ?? [];
+    this.buildCategorySeries(transactions);
+    this.buildAssetSeries();
+    this.buildTrendSeries(transactions);
+  }
+
+  private buildCategorySeries(transactions: Transaction[]): void {
+    const expenseMap = new Map<string, number>();
+    const incomeMap = new Map<string, number>();
+
+    for (const transaction of transactions) {
+      const amount = Number(transaction.amount) || 0;
+      const category = (transaction.category || 'Unkategorisiert').trim() || 'Unkategorisiert';
+
+      if (transaction.type === 'EXPENSE') {
+        expenseMap.set(category, (expenseMap.get(category) ?? 0) + amount);
+      } else {
+        incomeMap.set(category, (incomeMap.get(category) ?? 0) + amount);
+      }
+    }
+
+    const expenseEntries = [...expenseMap.entries()].sort((a, b) => b[1] - a[1]);
+    const incomeEntries = [...incomeMap.entries()].sort((a, b) => b[1] - a[1]);
+
+    this.expenseCategoryLabels = expenseEntries.map(([label]) => label);
+    this.expenseCategoryData = expenseEntries.map(([, value]) => this.round(value));
+    this.incomeCategoryLabels = incomeEntries.map(([label]) => label);
+    this.incomeCategoryData = incomeEntries.map(([, value]) => this.round(value));
+  }
+
+  private buildAssetSeries(): void {
+    const assets = this.dashboard?.assetsByName ?? [];
+    this.assetChartLabels = assets.map((item) => item.label);
+    this.assetChartData = assets.map((item) => this.round(Number(item.value) || 0));
+  }
+
+  private buildTrendSeries(transactions: Transaction[]): void {
+    const bucketMap = new Map<string, { income: number; expense: number }>();
+
+    for (const transaction of transactions) {
+      const bucket = this.getTrendBucket(transaction.date);
+      const amount = Number(transaction.amount) || 0;
+      const current = bucketMap.get(bucket) ?? { income: 0, expense: 0 };
+
+      if (transaction.type === 'INCOME') {
+        current.income += amount;
+      } else {
+        current.expense += amount;
+      }
+
+      bucketMap.set(bucket, current);
+    }
+
+    const sortedKeys = [...bucketMap.keys()].sort((a, b) => a.localeCompare(b));
+    this.trendLabels = sortedKeys.map((key) => this.formatTrendLabel(key));
+    this.trendIncomeData = sortedKeys.map((key) => this.round(bucketMap.get(key)?.income ?? 0));
+    this.trendExpenseData = sortedKeys.map((key) => this.round(bucketMap.get(key)?.expense ?? 0));
+    this.trendNetData = sortedKeys.map((key) => {
+      const item = bucketMap.get(key);
+      return this.round((item?.income ?? 0) - (item?.expense ?? 0));
+    });
+  }
+
+  private getTrendBucket(dateString: string): string {
+    if (this.trendGranularity === 'year') {
+      return dateString.slice(0, 4);
+    }
+
+    if (this.trendGranularity === 'month') {
+      return dateString.slice(0, 7);
+    }
+
+    return this.getIsoWeekKey(dateString);
+  }
+
+  private formatTrendLabel(bucket: string): string {
+    if (this.trendGranularity === 'year') {
+      return bucket;
+    }
+
+    if (this.trendGranularity === 'month') {
+      const [yearRaw, monthRaw] = bucket.split('-');
+      const year = Number(yearRaw);
+      const month = Number(monthRaw);
+      if (!Number.isFinite(year) || !Number.isFinite(month)) {
+        return bucket;
+      }
+
+      const date = new Date(year, month - 1, 1);
+      return new Intl.DateTimeFormat('de-AT', { month: 'short', year: '2-digit' }).format(date);
+    }
+
+    const [year, week] = bucket.split('-W');
+    return `W${week}/${year}`;
+  }
+
+  private getIsoWeekKey(dateString: string): string {
+    const date = new Date(`${dateString}T12:00:00`);
+    const day = (date.getDay() + 6) % 7;
+    date.setDate(date.getDate() - day + 3);
+
+    const firstThursday = new Date(date.getFullYear(), 0, 4);
+    const firstDay = (firstThursday.getDay() + 6) % 7;
+    firstThursday.setDate(firstThursday.getDate() - firstDay + 3);
+
+    const week = 1 + Math.round((date.getTime() - firstThursday.getTime()) / DashboardPageComponent.MS_PER_WEEK);
+    return `${date.getFullYear()}-W${String(week).padStart(2, '0')}`;
+  }
+
+  private round(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 }

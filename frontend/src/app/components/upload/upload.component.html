@@ -1,11 +1,11 @@
 <section class="upload-box">
-  <h3>Import Bank Export</h3>
-  <p>Upload `CSV` or `JSON` exports to add transactions to your account.</p>
+  <h3>Bankexport importieren</h3>
+  <p>Lade `CSV`- oder `JSON`-Exporte hoch, um Transaktionen zu uebernehmen.</p>
 
   <input type="file" accept=".csv,.json" (change)="onFileSelected($event)" />
 
   <button type="button" (click)="upload()" [disabled]="!selectedFile || isUploading">
-    {{ isUploading ? 'Uploading...' : 'Upload File' }}
+    {{ isUploading ? 'Wird hochgeladen...' : 'Datei hochladen' }}
   </button>
 
   <p class="status success" *ngIf="successMessage">{{ successMessage }}</p>
