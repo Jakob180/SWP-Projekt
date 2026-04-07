@@ -16,6 +16,17 @@
       <p>{{ username || 'Angemeldet' }}</p>
     </div>
 
+    <button
+      type="button"
+      class="theme-toggle"
+      (click)="toggleDarkMode()"
+      [attr.aria-label]="darkMode ? 'Lightmode aktivieren' : 'Darkmode aktivieren'"
+      [attr.title]="darkMode ? 'Lightmode aktivieren' : 'Darkmode aktivieren'"
+    >
+      <span class="theme-toggle-icon" aria-hidden="true">{{ darkMode ? '☀' : '☾' }}</span>
+      <span>{{ darkMode ? 'Lightmode' : 'Darkmode' }}</span>
+    </button>
+
     <section class="sidebar-card nav-card">
       <h3>Navigation</h3>
       <nav class="sidebar-nav">
@@ -60,7 +71,7 @@
       </div>
     </section>
 
-    <app-upload (importFinished)="refreshAfterImport()"></app-upload>
+    <app-upload (importFinished)="refreshAfterImport($event)"></app-upload>
 
     <button class="logout" type="button" (click)="logout()">Abmelden</button>
   </aside>
@@ -225,6 +236,7 @@
         *ngIf="showExpenseSections"
         title="Ausgaben nach Kategorie"
         chartType="pie"
+        [darkMode]="darkMode"
         [labels]="expenseCategoryLabels"
         [datasets]="[{ label: 'Ausgaben', data: expenseCategoryData, backgroundColor: expensePalette }]"
         emptyMessage="Keine Ausgaben in diesem Zeitraum."
@@ -234,6 +246,7 @@
         *ngIf="showIncomeSections"
         title="Einnahmen nach Kategorie"
         chartType="pie"
+        [darkMode]="darkMode"
         [labels]="incomeCategoryLabels"
         [datasets]="[{ label: 'Einnahmen', data: incomeCategoryData, backgroundColor: incomePalette }]"
         emptyMessage="Keine Einnahmen in diesem Zeitraum."
@@ -243,6 +256,7 @@
         *ngIf="showAssetSections"
         title="Vermoegensverteilung"
         chartType="pie"
+        [darkMode]="darkMode"
         [labels]="assetChartLabels"
         [datasets]="[{ label: 'Vermoegen', data: assetChartData, backgroundColor: palette }]"
         emptyMessage="Noch keine Assets vorhanden."
@@ -253,6 +267,7 @@
         class="trend-panel"
         title="Cashflow im Zeitverlauf ({{ trendGranularityLabel }})"
         chartType="bar"
+        [darkMode]="darkMode"
         [labels]="trendLabels"
         [datasets]="[
           { label: 'Einnahmen', data: trendIncomeData, backgroundColor: '#22c55e', borderColor: '#16a34a' },

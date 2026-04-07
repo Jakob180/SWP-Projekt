@@ -84,6 +84,8 @@ export interface DashboardResponse {
 
 export interface FileImportResponse {
   importedTransactions: number;
+  importedFrom: string | null;
+  importedTo: string | null;
 }
 
 export interface DateFilter {

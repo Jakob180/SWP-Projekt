@@ -1,4 +1,6 @@
 package com.Budeget_Tracker.demo.dto.finance;
 
-public record FileImportResponse(int importedTransactions) {
+import java.time.LocalDate;
+
+public record FileImportResponse(int importedTransactions, LocalDate importedFrom, LocalDate importedTo) {
 }

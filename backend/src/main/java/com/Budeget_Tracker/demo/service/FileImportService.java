@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -26,6 +27,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -73,8 +75,24 @@ public class FileImportService {
                 .toLowerCase(Locale.ROOT);
 
         List<TransactionRequest> transactions = parseTransactions(file, originalFilename);
-        int importedCount = transactionService.importTransactions(userId, transactions);
-        return new FileImportResponse(importedCount);
+        try {
+            int importedCount = transactionService.importTransactions(userId, transactions);
+            LocalDate importedFrom = transactions.stream()
+                    .map(TransactionRequest::date)
+                    .min(Comparator.naturalOrder())
+                    .orElse(null);
+            LocalDate importedTo = transactions.stream()
+                    .map(TransactionRequest::date)
+                    .max(Comparator.naturalOrder())
+                    .orElse(null);
+            return new FileImportResponse(importedCount, importedFrom, importedTo);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Import could not be saved. Please check transaction values and the database schema.",
+                    ex
+            );
+        }
     }
 
     private List<TransactionRequest> parseTransactions(MultipartFile file, String originalFilename) {

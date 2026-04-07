@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ChartPanelComponent } from '../../components/chart-panel/chart-panel.component';
 import { UploadComponent } from '../../components/upload/upload.component';
-import { DashboardResponse, Transaction, TransactionType } from '../../models/api.models';
+import { DashboardResponse, FileImportResponse, Transaction, TransactionType } from '../../models/api.models';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -27,6 +27,7 @@ interface SidebarNavItem {
 })
 export class DashboardPageComponent implements OnInit {
   private static readonly MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+  private static readonly THEME_STORAGE_KEY = 'finance_dashboard_theme';
 
   dashboard?: DashboardResponse;
   loading = true;
@@ -55,6 +56,7 @@ export class DashboardPageComponent implements OnInit {
   assetValue: number | null = null;
 
   sidebarCollapsed = true;
+  darkMode = false;
   activeView: DashboardView = 'overview';
   trendGranularity: 'week' | 'month' | 'year' = 'month';
 
@@ -87,6 +89,7 @@ export class DashboardPageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.initializeTheme();
     this.applyPreset('month');
   }
 
@@ -200,6 +203,11 @@ export class DashboardPageComponent implements OnInit {
     this.sidebarCollapsed = !this.sidebarCollapsed;
   }
 
+  toggleDarkMode(): void {
+    this.darkMode = !this.darkMode;
+    this.applyTheme();
+  }
+
   getTransactionTypeLabel(type: TransactionType): string {
     return type === 'INCOME' ? 'Einnahme' : 'Ausgabe';
   }
@@ -231,7 +239,17 @@ export class DashboardPageComponent implements OnInit {
     this.loadDashboard(this.customFrom, this.customTo);
   }
 
-  refreshAfterImport(): void {
+  refreshAfterImport(response?: FileImportResponse): void {
+    if (response?.importedFrom && response?.importedTo) {
+      this.filterMode = 'custom';
+      this.customFrom = response.importedFrom;
+      this.customTo = response.importedTo;
+      this.loadDashboard(response.importedFrom, response.importedTo);
+      this.actionMessage = `${response.importedTransactions} Transaktionen wurden importiert und im passenden Zeitraum geladen.`;
+      this.actionError = '';
+      return;
+    }
+
     this.loadDashboard(this.activeFrom, this.activeTo);
   }
 
@@ -498,5 +516,34 @@ export class DashboardPageComponent implements OnInit {
 
   private round(value: number): number {
     return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  private initializeTheme(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const storedTheme = localStorage.getItem(DashboardPageComponent.THEME_STORAGE_KEY);
+    if (storedTheme === 'dark') {
+      this.darkMode = true;
+    } else if (storedTheme === 'light') {
+      this.darkMode = false;
+    } else {
+      this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    this.applyTheme();
+  }
+
+  private applyTheme(): void {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    document.body.classList.toggle('theme-dark', this.darkMode);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DashboardPageComponent.THEME_STORAGE_KEY, this.darkMode ? 'dark' : 'light');
+    }
   }
 }
