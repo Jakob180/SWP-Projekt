@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -37,8 +38,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleUnexpectedError(Exception ex) {
         log.error("Unhandled server error", ex);
+        Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String rootCauseMessage = rootCause != null ? rootCause.getMessage() : null;
+        String message = "Unexpected server error";
+
+        if (rootCauseMessage != null && !rootCauseMessage.isBlank() && !rootCauseMessage.equals(ex.getMessage())) {
+            message = "Unexpected server error: " + rootCauseMessage;
+        }
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(errorBody(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected server error", null));
+                .body(errorBody(HttpStatus.INTERNAL_SERVER_ERROR, message, null));
     }
 
     private Map<String, Object> errorBody(HttpStatus status, String message, Map<String, String> details) {

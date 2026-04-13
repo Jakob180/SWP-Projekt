@@ -17,5 +17,11 @@ public interface FinanceTransactionRepository extends JpaRepository<FinanceTrans
             LocalDate to
     );
 
+    List<FinanceTransaction> findByUserIdAndDateGreaterThanEqualAndDateLessThanEqual(
+            Long userId,
+            LocalDate from,
+            LocalDate to
+    );
+
     Optional<FinanceTransaction> findByIdAndUserId(Long id, Long userId);
 }

@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Output } from '@angular/core';
+import { FileImportResponse } from '../../models/api.models';
 import { ApiService } from '../../services/api.service';
 
 @Component({
@@ -10,7 +11,7 @@ import { ApiService } from '../../services/api.service';
   styleUrl: './upload.component.css'
 })
 export class UploadComponent {
-  @Output() importFinished = new EventEmitter<void>();
+  @Output() importFinished = new EventEmitter<FileImportResponse>();
 
   selectedFile: File | null = null;
   isUploading = false;
@@ -28,7 +29,7 @@ export class UploadComponent {
 
   upload(): void {
     if (!this.selectedFile) {
-      this.errorMessage = 'Please select a CSV or JSON file first.';
+      this.errorMessage = 'Bitte zuerst eine CSV- oder JSON-Datei auswaehlen.';
       return;
     }
 
@@ -39,13 +40,16 @@ export class UploadComponent {
     this.apiService.uploadTransactions(this.selectedFile).subscribe({
       next: (response) => {
         this.isUploading = false;
-        this.successMessage = `Imported ${response.importedTransactions} transactions.`;
+        const importedRange = response.importedFrom && response.importedTo
+          ? ` Zeitraum: ${response.importedFrom} bis ${response.importedTo}.`
+          : '';
+        this.successMessage = `${response.importedTransactions} Transaktionen importiert.${importedRange}`;
         this.selectedFile = null;
-        this.importFinished.emit();
+        this.importFinished.emit(response);
       },
       error: (error) => {
         this.isUploading = false;
-        this.errorMessage = error?.error?.message ?? 'Import failed. Please check your file format.';
+        this.errorMessage = error?.error?.message ?? 'Import fehlgeschlagen. Bitte Dateiformat pruefen.';
       }
     });
   }

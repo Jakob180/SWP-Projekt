@@ -9,19 +9,25 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,6 +35,20 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class FileImportService {
+
+    private static final Set<String> AMOUNT_HEADERS = Set.of("amount", "value", "sum", "betrag", "umsatz");
+    private static final Set<String> DATE_HEADERS = Set.of("date", "bookingdate", "transactiondate", "valuedate", "datum");
+    private static final Set<String> TYPE_HEADERS = Set.of("type", "transactiontype", "buchungstyp");
+    private static final Set<String> CATEGORY_HEADERS = Set.of("category", "kategorie");
+    private static final Set<String> DESCRIPTION_HEADERS = Set.of("description", "note", "details", "text", "verwendungszweck");
+
+    private static final int ELBA_BOOKING_DATE_INDEX = 0;
+    private static final int ELBA_DESCRIPTION_INDEX = 1;
+    private static final int ELBA_VALUE_DATE_INDEX = 2;
+    private static final int ELBA_AMOUNT_INDEX = 3;
+    private static final Pattern PURPOSE_PATTERN = Pattern.compile(
+            "(?i)verwendungszweck:\\s*(.*?)(?:\\s+weiterer\\s+verwendungszweck:|\\s+belegref:|$)"
+    );
 
     private static final DateTimeFormatter[] DATE_FORMATS = {
             DateTimeFormatter.ISO_LOCAL_DATE,
@@ -55,8 +75,24 @@ public class FileImportService {
                 .toLowerCase(Locale.ROOT);
 
         List<TransactionRequest> transactions = parseTransactions(file, originalFilename);
-        int importedCount = transactionService.importTransactions(userId, transactions);
-        return new FileImportResponse(importedCount);
+        try {
+            int importedCount = transactionService.importTransactions(userId, transactions);
+            LocalDate importedFrom = transactions.stream()
+                    .map(TransactionRequest::date)
+                    .min(Comparator.naturalOrder())
+                    .orElse(null);
+            LocalDate importedTo = transactions.stream()
+                    .map(TransactionRequest::date)
+                    .max(Comparator.naturalOrder())
+                    .orElse(null);
+            return new FileImportResponse(importedCount, importedFrom, importedTo);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Import could not be saved. Please check transaction values and the database schema.",
+                    ex
+            );
+        }
     }
 
     private List<TransactionRequest> parseTransactions(MultipartFile file, String originalFilename) {
@@ -97,60 +133,142 @@ public class FileImportService {
     private TransactionRequest parseJsonItem(JsonNode item) {
         BigDecimal amount = parseAmount(item.path("amount").asText(null));
         TransactionType type = parseType(item.path("type").asText(null), amount);
-        String category = item.path("category").asText("Uncategorized").trim();
-        String description = item.path("description").asText("").trim();
+        String category = sanitizeCategory(item.path("category").asText("Uncategorized"));
+        String description = sanitizeDescription(item.path("description").asText(""));
         LocalDate date = parseDate(item.path("date").asText(null));
-
-        if (category.isBlank()) {
-            category = "Uncategorized";
-        }
 
         return new TransactionRequest(amount.abs(), type, category, description, date);
     }
 
     private List<TransactionRequest> parseCsv(Reader reader) throws IOException {
-        CSVParser parser = CSVFormat.DEFAULT.builder()
+        String csvContent = stripBom(readAll(reader));
+        if (csvContent.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV file is empty");
+        }
+
+        char delimiter = detectDelimiter(csvContent);
+        CSVFormat rawFormat = CSVFormat.DEFAULT.builder()
+                .setDelimiter(delimiter)
+                .setTrim(true)
+                .build();
+
+        List<CSVRecord> records;
+        try (CSVParser parser = rawFormat.parse(new StringReader(csvContent))) {
+            records = parser.getRecords();
+        }
+
+        if (records.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV file does not contain any rows");
+        }
+
+        if (looksLikeHeaderRow(records.get(0))) {
+            return parseCsvWithHeaders(csvContent, delimiter);
+        }
+
+        return parseCsvWithoutHeaders(records);
+    }
+
+    private List<TransactionRequest> parseCsvWithHeaders(String csvContent, char delimiter) throws IOException {
+        CSVFormat format = CSVFormat.DEFAULT.builder()
+                .setDelimiter(delimiter)
                 .setHeader()
                 .setSkipHeaderRecord(true)
                 .setIgnoreHeaderCase(true)
                 .setTrim(true)
-                .build()
-                .parse(reader);
+                .build();
 
         List<TransactionRequest> requests = new ArrayList<>();
-        for (CSVRecord record : parser) {
-            String amountRaw = getFirst(record, "amount", "value", "sum");
-            String dateRaw = getFirst(record, "date", "bookingDate", "transactionDate");
+        try (CSVParser parser = format.parse(new StringReader(csvContent))) {
+            for (CSVRecord record : parser) {
+                if (isRowEmpty(record)) {
+                    continue;
+                }
 
-            if (amountRaw == null || dateRaw == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "CSV rows must contain at least amount and date columns"
-                );
+                requests.add(parseCsvRecordWithHeaders(record));
             }
+        }
 
-            BigDecimal amount = parseAmount(amountRaw);
-            TransactionType type = parseType(getFirst(record, "type", "transactionType"), amount);
-
-            String category = Optional.ofNullable(getFirst(record, "category"))
-                    .map(String::trim)
-                    .filter(value -> !value.isBlank())
-                    .orElse("Uncategorized");
-
-            String description = Optional.ofNullable(getFirst(record, "description", "note", "details"))
-                    .map(String::trim)
-                    .orElse("");
-
-            requests.add(new TransactionRequest(
-                    amount.abs(),
-                    type,
-                    category,
-                    description,
-                    parseDate(dateRaw)
-            ));
+        if (requests.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV file does not contain importable transactions");
         }
 
         return requests;
+    }
+
+    private TransactionRequest parseCsvRecordWithHeaders(CSVRecord record) {
+        String amountRaw = getFirst(record, "amount", "value", "sum", "betrag", "umsatz");
+        String dateRaw = getFirst(record, "date", "bookingDate", "transactionDate", "valueDate", "datum");
+        String rawDescription = getFirst(record, "description", "note", "details", "text", "verwendungszweck");
+
+        if ((amountRaw == null || dateRaw == null) && looksLikeElbaRow(record)) {
+            return parseElbaRecord(record);
+        }
+
+        if (amountRaw == null || dateRaw == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "CSV rows must contain amount and date (header names like amount/date or meinElba format)"
+            );
+        }
+
+        BigDecimal amount = parseAmount(amountRaw);
+        TransactionType type = parseType(getFirst(record, "type", "transactionType", "buchungstyp"), amount);
+        String description = sanitizeDescription(rawDescription);
+
+        String category = Optional.ofNullable(getFirst(record, "category", "kategorie"))
+                .map(this::sanitizeCategory)
+                .orElseGet(() -> inferCategory(description, type));
+
+        return new TransactionRequest(
+                amount.abs(),
+                type,
+                category,
+                description,
+                parseDate(dateRaw)
+        );
+    }
+
+    private List<TransactionRequest> parseCsvWithoutHeaders(List<CSVRecord> records) {
+        List<TransactionRequest> requests = new ArrayList<>();
+        for (CSVRecord record : records) {
+            if (isRowEmpty(record)) {
+                continue;
+            }
+
+            requests.add(parseElbaRecord(record));
+        }
+
+        if (requests.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV file does not contain importable transactions");
+        }
+
+        return requests;
+    }
+
+    private TransactionRequest parseElbaRecord(CSVRecord record) {
+        if (record.size() <= ELBA_AMOUNT_INDEX) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV row has too few columns for import");
+        }
+
+        String amountRaw = record.get(ELBA_AMOUNT_INDEX);
+        String dateRaw = firstNonBlank(record, ELBA_BOOKING_DATE_INDEX, ELBA_VALUE_DATE_INDEX);
+        if (dateRaw == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Transaction date is required");
+        }
+
+        BigDecimal amount = parseAmount(amountRaw);
+        TransactionType type = parseType(null, amount);
+
+        String description = sanitizeDescription(getValue(record, ELBA_DESCRIPTION_INDEX));
+        String category = inferCategory(description, type);
+
+        return new TransactionRequest(
+                amount.abs(),
+                type,
+                category,
+                description,
+                parseDate(dateRaw)
+        );
     }
 
     private String getFirst(CSVRecord record, String... headers) {
@@ -175,6 +293,107 @@ public class FileImportService {
             }
         }
 
+        return null;
+    }
+
+    private boolean looksLikeHeaderRow(CSVRecord firstRow) {
+        for (String value : firstRow) {
+            String normalized = normalizeHeader(value);
+            if (AMOUNT_HEADERS.contains(normalized)
+                    || DATE_HEADERS.contains(normalized)
+                    || TYPE_HEADERS.contains(normalized)
+                    || CATEGORY_HEADERS.contains(normalized)
+                    || DESCRIPTION_HEADERS.contains(normalized)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean looksLikeElbaRow(CSVRecord record) {
+        if (record.size() <= ELBA_AMOUNT_INDEX) {
+            return false;
+        }
+
+        String amountRaw = getValue(record, ELBA_AMOUNT_INDEX);
+        String dateRaw = firstNonBlank(record, ELBA_BOOKING_DATE_INDEX, ELBA_VALUE_DATE_INDEX);
+
+        try {
+            parseAmount(amountRaw);
+            parseDate(dateRaw);
+            return true;
+        } catch (ResponseStatusException ignored) {
+            return false;
+        }
+    }
+
+    private boolean isRowEmpty(CSVRecord record) {
+        for (String value : record) {
+            if (value != null && !value.trim().isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String readAll(Reader reader) throws IOException {
+        StringBuilder builder = new StringBuilder();
+        char[] buffer = new char[4096];
+        int read;
+        while ((read = reader.read(buffer)) != -1) {
+            builder.append(buffer, 0, read);
+        }
+        return builder.toString();
+    }
+
+    private String stripBom(String input) {
+        if (input != null && input.startsWith("\uFEFF")) {
+            return input.substring(1);
+        }
+        return input == null ? "" : input;
+    }
+
+    private char detectDelimiter(String csvContent) {
+        String firstLine = csvContent.lines()
+                .map(String::trim)
+                .filter(line -> !line.isEmpty())
+                .findFirst()
+                .orElse("");
+
+        long semicolons = firstLine.chars().filter(character -> character == ';').count();
+        long commas = firstLine.chars().filter(character -> character == ',').count();
+        return semicolons > commas ? ';' : ',';
+    }
+
+    private String normalizeHeader(String headerValue) {
+        if (headerValue == null) {
+            return "";
+        }
+
+        return headerValue
+                .replace("\uFEFF", "")
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replace(" ", "")
+                .replace("_", "")
+                .replace("-", "");
+    }
+
+    private String getValue(CSVRecord record, int index) {
+        if (index < 0 || index >= record.size()) {
+            return null;
+        }
+        return record.get(index);
+    }
+
+    private String firstNonBlank(CSVRecord record, int... indexes) {
+        for (int index : indexes) {
+            String value = getValue(record, index);
+            if (value != null && !value.trim().isEmpty()) {
+                return value;
+            }
+        }
         return null;
     }
 
@@ -213,6 +432,107 @@ public class FileImportService {
             case "EXPENSE", "DEBIT", "WITHDRAWAL" -> TransactionType.EXPENSE;
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown transaction type: " + rawType);
         };
+    }
+
+    private String inferCategory(String description, TransactionType type) {
+        String purpose = extractPurpose(description);
+        if (!purpose.isBlank()) {
+            return sanitizeCategory(purpose);
+        }
+
+        String normalized = normalizeForMatching(description);
+
+        if (type == TransactionType.INCOME) {
+            if (containsAny(normalized, "GEHALT", "LOHN", "SALARY")) {
+                return "Gehalt";
+            }
+            if (containsAny(normalized, "UEBERWEISUNG", "UBERWEISUNG", "SCT", "SEPA", "GUTSCHRIFT")) {
+                return "Ueberweisung Eingang";
+            }
+            return "Einnahmen";
+        }
+
+        if (containsAny(normalized, "POS", "KARTENZAHLUNG", "CARD")) {
+            return "Kartenzahlung";
+        }
+        if (containsAny(normalized, "LASTSCHRIFT", "DIRECT DEBIT")) {
+            return "Lastschrift";
+        }
+        if (containsAny(normalized, "UEBERWEISUNG", "UBERWEISUNG", "SCT", "SEPA", "TRANSFER")) {
+            return "Ueberweisung Ausgang";
+        }
+
+        return "Ausgaben";
+    }
+
+    private String extractPurpose(String description) {
+        if (description == null || description.isBlank()) {
+            return "";
+        }
+
+        Matcher matcher = PURPOSE_PATTERN.matcher(description);
+        if (!matcher.find()) {
+            return "";
+        }
+
+        String purpose = matcher.group(1);
+        if (purpose == null) {
+            return "";
+        }
+
+        return purpose.trim().replaceAll("\\s+", " ");
+    }
+
+    private String normalizeForMatching(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        return text.toUpperCase(Locale.ROOT)
+                .replace('Ä', 'A')
+                .replace('Ö', 'O')
+                .replace('Ü', 'U')
+                .replace("ß", "SS");
+    }
+
+    private boolean containsAny(String text, String... keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String sanitizeCategory(String rawCategory) {
+        String fallback = "Uncategorized";
+        if (rawCategory == null) {
+            return fallback;
+        }
+
+        String normalized = rawCategory.trim();
+        if (normalized.isBlank()) {
+            return fallback;
+        }
+
+        if (normalized.length() > 80) {
+            return normalized.substring(0, 80);
+        }
+
+        return normalized;
+    }
+
+    private String sanitizeDescription(String rawDescription) {
+        if (rawDescription == null) {
+            return "";
+        }
+
+        String normalized = rawDescription.trim().replaceAll("\\s+", " ");
+        if (normalized.length() > 255) {
+            return normalized.substring(0, 255);
+        }
+
+        return normalized;
     }
 
     private LocalDate parseDate(String rawDate) {

@@ -48,7 +48,11 @@ export class AuthPageComponent {
       },
       error: (error) => {
         this.loading = false;
-        this.errorMessage = error?.error?.message ?? 'Authentication failed.';
+        this.errorMessage = error?.error?.message ?? (
+          this.mode === 'login'
+            ? 'Anmeldung fehlgeschlagen.'
+            : 'Registrierung fehlgeschlagen.'
+        );
       }
     });
   }

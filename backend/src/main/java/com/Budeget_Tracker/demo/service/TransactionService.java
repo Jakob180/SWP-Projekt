@@ -4,8 +4,12 @@ import com.Budeget_Tracker.demo.dto.finance.TransactionRequest;
 import com.Budeget_Tracker.demo.dto.finance.TransactionResponse;
 import com.Budeget_Tracker.demo.model.FinanceTransaction;
 import com.Budeget_Tracker.demo.repository.FinanceTransactionRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -62,12 +66,41 @@ public class TransactionService {
     }
 
     public int importTransactions(Long userId, List<TransactionRequest> requests) {
-        List<FinanceTransaction> entities = requests.stream().map(request -> {
-            FinanceTransaction transaction = new FinanceTransaction();
-            transaction.setUserId(userId);
-            applyRequestToEntity(transaction, request);
-            return transaction;
-        }).toList();
+        if (requests.isEmpty()) {
+            return 0;
+        }
+
+        LocalDate minDate = requests.stream()
+                .map(TransactionRequest::date)
+                .filter(Objects::nonNull)
+                .min(LocalDate::compareTo)
+                .orElse(EARLIEST_DATE);
+        LocalDate maxDate = requests.stream()
+                .map(TransactionRequest::date)
+                .filter(Objects::nonNull)
+                .max(LocalDate::compareTo)
+                .orElse(LATEST_DATE);
+
+        Set<TransactionFingerprint> existingFingerprints = transactionRepository
+                .findByUserIdAndDateGreaterThanEqualAndDateLessThanEqual(userId, minDate, maxDate)
+                .stream()
+                .map(TransactionFingerprint::fromEntity)
+                .collect(java.util.stream.Collectors.toCollection(HashSet::new));
+
+        List<FinanceTransaction> entities = requests.stream()
+                .map(TransactionFingerprint::fromRequest)
+                .filter(fingerprint -> existingFingerprints.add(fingerprint))
+                .map(fingerprint -> {
+                    FinanceTransaction transaction = new FinanceTransaction();
+                    transaction.setUserId(userId);
+                    applyRequestToEntity(transaction, fingerprint.toRequest());
+                    return transaction;
+                })
+                .toList();
+
+        if (entities.isEmpty()) {
+            return 0;
+        }
 
         transactionRepository.saveAll(entities);
         return entities.size();
@@ -90,5 +123,45 @@ public class TransactionService {
                 transaction.getDescription(),
                 transaction.getDate()
         );
+    }
+
+    private record TransactionFingerprint(
+            BigDecimal amount,
+            com.Budeget_Tracker.demo.model.TransactionType type,
+            String category,
+            String description,
+            LocalDate date
+    ) {
+        private static TransactionFingerprint fromRequest(TransactionRequest request) {
+            return new TransactionFingerprint(
+                    normalizeAmount(request.amount()),
+                    request.type(),
+                    normalizeText(request.category()),
+                    normalizeText(request.description()),
+                    request.date()
+            );
+        }
+
+        private static TransactionFingerprint fromEntity(FinanceTransaction entity) {
+            return new TransactionFingerprint(
+                    normalizeAmount(entity.getAmount()),
+                    entity.getType(),
+                    normalizeText(entity.getCategory()),
+                    normalizeText(entity.getDescription()),
+                    entity.getDate()
+            );
+        }
+
+        private TransactionRequest toRequest() {
+            return new TransactionRequest(amount, type, category, description, date);
+        }
+
+        private static BigDecimal normalizeAmount(BigDecimal amount) {
+            return amount == null ? BigDecimal.ZERO : amount.abs().stripTrailingZeros();
+        }
+
+        private static String normalizeText(String value) {
+            return value == null ? "" : value.trim();
+        }
     }
 }
