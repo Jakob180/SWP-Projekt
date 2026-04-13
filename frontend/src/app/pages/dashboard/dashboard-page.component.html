@@ -286,6 +286,61 @@
       ></app-chart-panel>
     </section>
 
+    <section class="budget-section" *ngIf="dashboard && showExpenseSections">
+      <article class="budget-card">
+        <div class="budget-head">
+          <h3>Kategorie-Budgets</h3>
+          <p>Limits fuer den aktuell geladenen Zeitraum</p>
+        </div>
+
+        <div class="budget-form">
+          <label>
+            Kategorie
+            <input type="text" [(ngModel)]="budgetCategory" placeholder="z.B. Essen" />
+          </label>
+          <label>
+            Budget
+            <input type="number" step="0.01" min="0.01" [(ngModel)]="budgetAmount" placeholder="0.00" />
+          </label>
+          <button type="button" (click)="addOrUpdateBudget()">Budget speichern</button>
+        </div>
+
+        <p class="success" *ngIf="budgetMessage">{{ budgetMessage }}</p>
+        <p class="error" *ngIf="budgetError">{{ budgetError }}</p>
+
+        <p class="empty-row" *ngIf="budgetStatuses.length === 0">Noch keine Budgets vorhanden.</p>
+
+        <div class="budget-list" *ngIf="budgetStatuses.length > 0">
+          <article class="budget-item" *ngFor="let budget of budgetStatuses">
+            <div class="budget-item-head">
+              <h4>{{ budget.category }}</h4>
+              <button type="button" class="budget-remove" (click)="removeBudget(budget.category)">Entfernen</button>
+            </div>
+
+            <div class="budget-numbers">
+              <span>{{ formatCurrency(budget.spent) }} / {{ formatCurrency(budget.budget) }}</span>
+              <span class="budget-state" [class.ok]="budget.state === 'ok'" [class.warn]="budget.state === 'warn'" [class.over]="budget.state === 'over'">
+                {{ getBudgetStateLabel(budget.state) }} ({{ budget.usagePercent }}%)
+              </span>
+            </div>
+
+            <div class="budget-progress">
+              <div
+                class="budget-progress-fill"
+                [class.warn]="budget.state === 'warn'"
+                [class.over]="budget.state === 'over'"
+                [style.width.%]="budget.usagePercentCapped"
+              ></div>
+            </div>
+
+            <p class="budget-remaining" [class.negative]="budget.remaining < 0">
+              {{ budget.remaining < 0 ? 'Ueberschreitung: ' : 'Restbudget: ' }}{{ formatCurrency(abs(budget.remaining)) }}
+            </p>
+          </article>
+        </div>
+      </article>
+    </section>
+
     <section class="transactions" *ngIf="dashboard">
       <h3>{{ transactionsTitle }}</h3>
       <div class="table-wrap">
