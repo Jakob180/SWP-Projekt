@@ -1,10 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ChartPanelComponent } from '../../components/chart-panel/chart-panel.component';
-import { UploadComponent } from '../../components/upload/upload.component';
-import { DashboardResponse, FileImportResponse, Transaction, TransactionType } from '../../models/api.models';
+import { Asset, DashboardResponse, Subscription, Transaction, TransactionType } from '../../models/api.models';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -15,13 +14,12 @@ interface SidebarNavItem {
   label: string;
   shortLabel: string;
   icon: string;
-  description: string;
 }
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, ChartPanelComponent, UploadComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ChartPanelComponent],
   templateUrl: './dashboard-page.component.html',
   styleUrl: './dashboard-page.component.css'
 })
@@ -76,10 +74,10 @@ export class DashboardPageComponent implements OnInit {
   readonly incomePalette = ['#22c55e', '#16a34a', '#84cc16', '#2dd4bf', '#38bdf8', '#4ade80'];
   readonly expensePalette = ['#ef4444', '#f97316', '#f59e0b', '#e11d48', '#fb7185', '#dc2626'];
   readonly sidebarNavItems: SidebarNavItem[] = [
-    { id: 'overview', label: 'Uebersicht', shortLabel: 'Ue', icon: 'U', description: 'Alle Kennzahlen und Diagramme' },
-    { id: 'income', label: 'Einnahmen', shortLabel: 'Ein', icon: '+', description: 'Nur Einnahmen und Trends' },
-    { id: 'expense', label: 'Ausgaben', shortLabel: 'Aus', icon: '-', description: 'Nur Ausgaben und Trends' },
-    { id: 'period', label: 'Zeitraum', shortLabel: 'Zeit', icon: 'Z', description: 'Woche, Monat oder Jahr vergleichen' }
+    { id: 'overview', label: 'Uebersicht', shortLabel: 'Ue', icon: 'U' },
+    { id: 'income', label: 'Einnahmen', shortLabel: 'Ein', icon: '+' },
+    { id: 'expense', label: 'Ausgaben', shortLabel: 'Aus', icon: '-' },
+    { id: 'period', label: 'Zeitraum', shortLabel: 'Zeit', icon: 'Z' }
   ];
 
   constructor(
@@ -196,8 +194,30 @@ export class DashboardPageComponent implements OnInit {
         : 'Jahr';
   }
 
+  get transactionCardTitle(): string {
+    return this.transactionType === 'INCOME' ? 'Neue Einnahme' : 'Neue Ausgabe';
+  }
+
+  get transactionAmountLabel(): string {
+    return this.transactionType === 'INCOME' ? 'Einnahmebetrag' : 'Ausgabebetrag';
+  }
+
+  get transactionButtonLabel(): string {
+    return this.transactionType === 'INCOME' ? 'Einnahme speichern' : 'Ausgabe speichern';
+  }
+
+  get showTransactionTypeSwitch(): boolean {
+    return this.activeView === 'overview';
+  }
+
   setView(view: DashboardView): void {
     this.activeView = view;
+
+    if (view === 'income') {
+      this.transactionType = 'INCOME';
+    } else if (view === 'expense') {
+      this.transactionType = 'EXPENSE';
+    }
   }
 
   toggleSidebar(): void {
@@ -211,6 +231,10 @@ export class DashboardPageComponent implements OnInit {
 
   getTransactionTypeLabel(type: TransactionType): string {
     return type === 'INCOME' ? 'Einnahme' : 'Ausgabe';
+  }
+
+  setTransactionType(type: TransactionType): void {
+    this.transactionType = type;
   }
 
   applyPreset(mode: 'month' | 'year'): void {
@@ -240,20 +264,6 @@ export class DashboardPageComponent implements OnInit {
     this.loadDashboard(this.customFrom, this.customTo);
   }
 
-  refreshAfterImport(response?: FileImportResponse): void {
-    if (response?.importedFrom && response?.importedTo) {
-      this.filterMode = 'custom';
-      this.customFrom = response.importedFrom;
-      this.customTo = response.importedTo;
-      this.loadDashboard(response.importedFrom, response.importedTo);
-      this.actionMessage = `${response.importedTransactions} Transaktionen wurden importiert und im passenden Zeitraum geladen.`;
-      this.actionError = '';
-      return;
-    }
-
-    this.loadDashboard(this.activeFrom, this.activeTo);
-  }
-
   setTrendGranularity(granularity: 'week' | 'month' | 'year'): void {
     this.trendGranularity = granularity;
     this.buildTrendSeries(this.dashboard?.transactions ?? []);
@@ -277,15 +287,24 @@ export class DashboardPageComponent implements OnInit {
       description: this.transactionDescription.trim(),
       date: this.transactionDate
     }).subscribe({
-      next: () => {
+      next: (createdTransaction) => {
+        const savedType = createdTransaction.type;
+        this.applyTransactionLocally(createdTransaction);
+
         this.transactionAmount = null;
         this.transactionCategory = '';
         this.transactionDescription = '';
-        this.transactionType = 'EXPENSE';
+        if (this.activeView === 'income') {
+          this.transactionType = 'INCOME';
+        } else if (this.activeView === 'expense') {
+          this.transactionType = 'EXPENSE';
+        }
         this.transactionDate = this.todayDateString();
-        this.actionMessage = 'Transaktion gespeichert.';
+        this.actionMessage = savedType === 'INCOME'
+          ? 'Einnahme gespeichert.'
+          : 'Ausgabe gespeichert.';
         this.actionLoading = false;
-        this.refreshAfterImport();
+        this.refreshDashboardAfterMutation(createdTransaction.date);
       },
       error: (error) => {
         this.actionLoading = false;
@@ -309,12 +328,13 @@ export class DashboardPageComponent implements OnInit {
       name: this.subscriptionName.trim(),
       monthlyCost: this.subscriptionMonthlyCost
     }).subscribe({
-      next: () => {
+      next: (createdSubscription) => {
+        this.applySubscriptionLocally(createdSubscription);
         this.subscriptionName = '';
         this.subscriptionMonthlyCost = null;
         this.actionMessage = 'Abo gespeichert.';
         this.actionLoading = false;
-        this.refreshAfterImport();
+        this.refreshDashboardAfterMutation();
       },
       error: (error) => {
         this.actionLoading = false;
@@ -338,12 +358,13 @@ export class DashboardPageComponent implements OnInit {
       name: this.assetName.trim(),
       value: this.assetValue
     }).subscribe({
-      next: () => {
+      next: (createdAsset) => {
+        this.applyAssetLocally(createdAsset);
         this.assetName = '';
         this.assetValue = null;
         this.actionMessage = 'Asset gespeichert.';
         this.actionLoading = false;
-        this.refreshAfterImport();
+        this.refreshDashboardAfterMutation();
       },
       error: (error) => {
         this.actionLoading = false;
@@ -437,9 +458,18 @@ export class DashboardPageComponent implements OnInit {
   }
 
   private buildAssetSeries(): void {
-    const assets = this.dashboard?.assetsByName ?? [];
-    this.assetChartLabels = assets.map((item) => item.label);
-    this.assetChartData = assets.map((item) => this.round(Number(item.value) || 0));
+    const assets = this.dashboard?.assets ?? [];
+    const byName = new Map<string, number>();
+
+    for (const asset of assets) {
+      const name = (asset.name || 'Unbenannt').trim() || 'Unbenannt';
+      const value = Number(asset.value) || 0;
+      byName.set(name, (byName.get(name) ?? 0) + value);
+    }
+
+    const entries = [...byName.entries()].sort((a, b) => b[1] - a[1]);
+    this.assetChartLabels = entries.map(([label]) => label);
+    this.assetChartData = entries.map(([, value]) => this.round(value));
   }
 
   private buildTrendSeries(transactions: Transaction[]): void {
@@ -517,6 +547,97 @@ export class DashboardPageComponent implements OnInit {
 
   private round(value: number): number {
     return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  private isDateInActiveRange(date: string): boolean {
+    if (!this.activeFrom || !this.activeTo) {
+      return true;
+    }
+
+    return date >= this.activeFrom && date <= this.activeTo;
+  }
+
+  private applyTransactionLocally(transaction: Transaction): void {
+    if (!this.dashboard) {
+      return;
+    }
+
+    const current = this.dashboard.transactions.filter((item) => item.id !== transaction.id);
+    this.dashboard.transactions = [transaction, ...current].sort((a, b) => {
+      const dateCompare = b.date.localeCompare(a.date);
+      return dateCompare !== 0 ? dateCompare : b.id - a.id;
+    });
+
+    this.recalculateDashboardTotals();
+    this.rebuildVisualSeries();
+  }
+
+  private applySubscriptionLocally(subscription: Subscription): void {
+    if (!this.dashboard) {
+      return;
+    }
+
+    const current = this.dashboard.subscriptions.filter((item) => item.id !== subscription.id);
+    this.dashboard.subscriptions = [subscription, ...current];
+    this.recalculateDashboardTotals();
+    this.rebuildVisualSeries();
+  }
+
+  private applyAssetLocally(asset: Asset): void {
+    if (!this.dashboard) {
+      return;
+    }
+
+    const current = this.dashboard.assets.filter((item) => item.id !== asset.id);
+    this.dashboard.assets = [asset, ...current];
+    this.recalculateDashboardTotals();
+    this.rebuildVisualSeries();
+  }
+
+  private recalculateDashboardTotals(): void {
+    if (!this.dashboard) {
+      return;
+    }
+
+    const totalIncome = this.dashboard.transactions
+      .filter((item) => item.type === 'INCOME')
+      .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+    const totalExpenses = this.dashboard.transactions
+      .filter((item) => item.type === 'EXPENSE')
+      .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+    const totalSubscriptions = this.dashboard.subscriptions
+      .reduce((sum, item) => sum + (Number(item.monthlyCost) || 0), 0);
+
+    const totalAssets = this.dashboard.assets
+      .reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+
+    this.dashboard.totalIncome = this.round(totalIncome);
+    this.dashboard.totalExpenses = this.round(totalExpenses);
+    this.dashboard.totalSubscriptions = this.round(totalSubscriptions);
+    this.dashboard.totalAssets = this.round(totalAssets);
+    this.dashboard.totalBalance = this.round(totalAssets + totalIncome - totalExpenses);
+  }
+
+  private refreshDashboardAfterMutation(targetDate?: string): void {
+    let from = this.activeFrom || this.customFrom;
+    let to = this.activeTo || this.customTo;
+
+    if (!from || !to) {
+      this.applyPreset('month');
+      return;
+    }
+
+    if (targetDate && !this.isDateInActiveRange(targetDate)) {
+      from = targetDate < from ? targetDate : from;
+      to = targetDate > to ? targetDate : to;
+      this.filterMode = 'custom';
+      this.customFrom = from;
+      this.customTo = to;
+    }
+
+    this.loadDashboard(from, to);
   }
 
   private initializeTheme(): void {
