@@ -18,6 +18,21 @@ interface SidebarNavItem {
   description: string;
 }
 
+interface CategoryBudget {
+  category: string;
+  amount: number;
+}
+
+interface CategoryBudgetStatus {
+  category: string;
+  budget: number;
+  spent: number;
+  remaining: number;
+  usagePercent: number;
+  usagePercentCapped: number;
+  state: 'ok' | 'warn' | 'over';
+}
+
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
@@ -28,6 +43,7 @@ interface SidebarNavItem {
 export class DashboardPageComponent implements OnInit {
   private static readonly MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
   private static readonly THEME_STORAGE_KEY = 'finance_dashboard_theme';
+  private static readonly BUDGET_STORAGE_PREFIX = 'finance_dashboard_budgets';
 
   dashboard?: DashboardResponse;
   loading = true;
@@ -54,6 +70,11 @@ export class DashboardPageComponent implements OnInit {
 
   assetName = '';
   assetValue: number | null = null;
+  budgetCategory = '';
+  budgetAmount: number | null = null;
+  budgetMessage = '';
+  budgetError = '';
+  categoryBudgets: CategoryBudget[] = [];
 
   sidebarCollapsed = false;
   darkMode = false;
@@ -91,6 +112,7 @@ export class DashboardPageComponent implements OnInit {
   ngOnInit(): void {
     this.initializeSidebar();
     this.initializeTheme();
+    this.loadBudgets();
     this.applyPreset('month');
   }
 
@@ -194,6 +216,35 @@ export class DashboardPageComponent implements OnInit {
       : this.trendGranularity === 'month'
         ? 'Monat'
         : 'Jahr';
+  }
+
+  get budgetStatuses(): CategoryBudgetStatus[] {
+    const spentMap = this.getExpenseMapByCategory();
+    return this.categoryBudgets
+      .map((budget) => {
+        const spent = this.round(spentMap.get(this.normalizeCategory(budget.category)) ?? 0);
+        const usagePercent = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+        const roundedUsage = this.round(usagePercent);
+        const usagePercentCapped = Math.min(100, Math.max(0, roundedUsage));
+
+        let state: 'ok' | 'warn' | 'over' = 'ok';
+        if (roundedUsage > 100) {
+          state = 'over';
+        } else if (roundedUsage >= 80) {
+          state = 'warn';
+        }
+
+        return {
+          category: budget.category,
+          budget: this.round(budget.amount),
+          spent,
+          remaining: this.round(budget.amount - spent),
+          usagePercent: roundedUsage,
+          usagePercentCapped,
+          state
+        };
+      })
+      .sort((a, b) => b.usagePercent - a.usagePercent);
   }
 
   setView(view: DashboardView): void {
@@ -350,6 +401,63 @@ export class DashboardPageComponent implements OnInit {
         this.actionError = error?.error?.message ?? 'Asset konnte nicht gespeichert werden.';
       }
     });
+  }
+
+  addOrUpdateBudget(): void {
+    const category = this.budgetCategory.trim();
+    const amount = this.budgetAmount ?? 0;
+
+    if (!category) {
+      this.budgetError = 'Bitte eine Kategorie fuer das Budget angeben.';
+      this.budgetMessage = '';
+      return;
+    }
+
+    if (amount <= 0) {
+      this.budgetError = 'Bitte einen Budgetbetrag groesser als 0 angeben.';
+      this.budgetMessage = '';
+      return;
+    }
+
+    const normalized = this.normalizeCategory(category);
+    const existingIndex = this.categoryBudgets.findIndex((item) => this.normalizeCategory(item.category) === normalized);
+    const nextBudget: CategoryBudget = { category, amount: this.round(amount) };
+
+    if (existingIndex >= 0) {
+      this.categoryBudgets[existingIndex] = nextBudget;
+      this.budgetMessage = `Budget fuer "${category}" wurde aktualisiert.`;
+    } else {
+      this.categoryBudgets = [...this.categoryBudgets, nextBudget];
+      this.budgetMessage = `Budget fuer "${category}" wurde hinzugefuegt.`;
+    }
+
+    this.budgetError = '';
+    this.budgetCategory = '';
+    this.budgetAmount = null;
+    this.persistBudgets();
+  }
+
+  removeBudget(category: string): void {
+    this.categoryBudgets = this.categoryBudgets.filter((item) => this.normalizeCategory(item.category) !== this.normalizeCategory(category));
+    this.budgetMessage = `Budget fuer "${category}" wurde entfernt.`;
+    this.budgetError = '';
+    this.persistBudgets();
+  }
+
+  getBudgetStateLabel(state: 'ok' | 'warn' | 'over'): string {
+    if (state === 'over') {
+      return 'Ueber Budget';
+    }
+
+    if (state === 'warn') {
+      return 'Achtung';
+    }
+
+    return 'Im Plan';
+  }
+
+  abs(value: number): number {
+    return Math.abs(value);
   }
 
   logout(): void {
@@ -519,6 +627,24 @@ export class DashboardPageComponent implements OnInit {
     return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 
+  private getExpenseMapByCategory(): Map<string, number> {
+    const map = new Map<string, number>();
+    const expenses = (this.dashboard?.transactions ?? []).filter((transaction) => transaction.type === 'EXPENSE');
+
+    for (const expense of expenses) {
+      const category = (expense.category || 'Unkategorisiert').trim() || 'Unkategorisiert';
+      const normalized = this.normalizeCategory(category);
+      const amount = Number(expense.amount) || 0;
+      map.set(normalized, this.round((map.get(normalized) ?? 0) + amount));
+    }
+
+    return map;
+  }
+
+  private normalizeCategory(value: string): string {
+    return value.trim().toLocaleLowerCase('de-AT');
+  }
+
   private initializeTheme(): void {
     if (typeof window === 'undefined') {
       return;
@@ -541,7 +667,43 @@ export class DashboardPageComponent implements OnInit {
       return;
     }
 
-    this.sidebarCollapsed = window.innerWidth < 1400;
+    this.sidebarCollapsed = window.innerWidth < 1100;
+  }
+
+  private loadBudgets(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const raw = localStorage.getItem(this.budgetStorageKey);
+    if (!raw) {
+      this.categoryBudgets = [];
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as CategoryBudget[];
+      this.categoryBudgets = parsed
+        .filter((entry) => typeof entry?.category === 'string' && Number(entry?.amount) > 0)
+        .map((entry) => ({
+          category: entry.category.trim(),
+          amount: this.round(Number(entry.amount))
+        }));
+    } catch {
+      this.categoryBudgets = [];
+    }
+  }
+
+  private persistBudgets(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    localStorage.setItem(this.budgetStorageKey, JSON.stringify(this.categoryBudgets));
+  }
+
+  private get budgetStorageKey(): string {
+    return `${DashboardPageComponent.BUDGET_STORAGE_PREFIX}_${this.username || 'anonymous'}`;
   }
 
   private applyTheme(): void {
