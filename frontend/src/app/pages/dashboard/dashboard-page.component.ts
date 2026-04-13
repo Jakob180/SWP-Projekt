@@ -55,7 +55,7 @@ export class DashboardPageComponent implements OnInit {
   assetName = '';
   assetValue: number | null = null;
 
-  sidebarCollapsed = true;
+  sidebarCollapsed = false;
   darkMode = false;
   activeView: DashboardView = 'overview';
   trendGranularity: 'week' | 'month' | 'year' = 'month';
@@ -89,6 +89,7 @@ export class DashboardPageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.initializeSidebar();
     this.initializeTheme();
     this.applyPreset('month');
   }
@@ -533,6 +534,14 @@ export class DashboardPageComponent implements OnInit {
     }
 
     this.applyTheme();
+  }
+
+  private initializeSidebar(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    this.sidebarCollapsed = window.innerWidth < 1400;
   }
 
   private applyTheme(): void {

@@ -1,4 +1,4 @@
-<div class="dashboard-layout" [class.sidebar-collapsed]="sidebarCollapsed">
+﻿<div class="dashboard-layout" [class.sidebar-collapsed]="sidebarCollapsed">
   <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
     <div class="brand">
       <div class="brand-head">
@@ -10,7 +10,7 @@
           [attr.aria-label]="sidebarCollapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'"
           [attr.title]="sidebarCollapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'"
         >
-          {{ sidebarCollapsed ? '☰' : '✕' }}
+          {{ sidebarCollapsed ? '+' : '-' }}
         </button>
       </div>
       <p>{{ username || 'Angemeldet' }}</p>
@@ -23,7 +23,7 @@
       [attr.aria-label]="darkMode ? 'Lightmode aktivieren' : 'Darkmode aktivieren'"
       [attr.title]="darkMode ? 'Lightmode aktivieren' : 'Darkmode aktivieren'"
     >
-      <span class="theme-toggle-icon" aria-hidden="true">{{ darkMode ? '☀' : '☾' }}</span>
+      <span class="theme-toggle-icon" aria-hidden="true">{{ darkMode ? 'L' : 'D' }}</span>
       <span>{{ darkMode ? 'Lightmode' : 'Darkmode' }}</span>
     </button>
 
@@ -354,3 +354,4 @@
     <div class="loading" *ngIf="loading">Dashboard wird geladen...</div>
   </main>
 </div>
+
