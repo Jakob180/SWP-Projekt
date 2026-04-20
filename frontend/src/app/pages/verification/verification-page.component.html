@@ -1,0 +1,30 @@
+<main class="verify-shell">
+  <section class="verify-card" *ngIf="verification">
+    <p class="eyebrow">Sicherheitspruefung</p>
+    <h1>{{ title }}</h1>
+    <p class="description">{{ description }}</p>
+
+    <form (ngSubmit)="submit()">
+      <label>
+        Verifizierungscode
+        <input type="text" name="code" [(ngModel)]="code" minlength="6" maxlength="6" required />
+      </label>
+
+      <label *ngIf="verification.mode === 'password'">
+        Neues Passwort
+        <input type="password" name="newPassword" [(ngModel)]="newPassword" minlength="6" required />
+      </label>
+
+      <button type="submit" [disabled]="loading">
+        {{ loading ? 'Bitte warten...' : (verification.mode === 'register' ? 'Registrierung abschliessen' : 'Passwort bestaetigen') }}
+      </button>
+
+      <button type="button" class="ghost-button" (click)="backToLogin()" [disabled]="loading">
+        Zurueck
+      </button>
+
+      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+      <p class="info" *ngIf="infoMessage">{{ infoMessage }}</p>
+    </form>
+  </section>
+</main>

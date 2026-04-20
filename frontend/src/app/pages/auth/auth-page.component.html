@@ -8,24 +8,44 @@
     <div class="mode-toggle">
       <button type="button" [class.active]="mode === 'login'" (click)="switchMode('login')">Anmelden</button>
       <button type="button" [class.active]="mode === 'register'" (click)="switchMode('register')">Registrieren</button>
+      <button type="button" [class.active]="mode === 'password'" (click)="switchMode('password')">Passwort aendern</button>
     </div>
 
     <form (ngSubmit)="submit()">
-      <label>
+      <label *ngIf="mode === 'login'">
+        Benutzername oder E-Mail
+        <input type="text" name="identifier" [(ngModel)]="identifier" required minlength="3" />
+      </label>
+
+      <label *ngIf="mode === 'register'">
         Benutzername
         <input type="text" name="username" [(ngModel)]="username" required minlength="3" />
       </label>
 
-      <label>
+      <label *ngIf="mode !== 'login'">
+        E-Mail
+        <input type="email" name="email" [(ngModel)]="email" required />
+      </label>
+
+      <label *ngIf="mode === 'login' || mode === 'register'">
         Passwort
         <input type="password" name="password" [(ngModel)]="password" required minlength="6" />
       </label>
 
       <button type="submit" [disabled]="loading">
-        {{ loading ? 'Bitte warten...' : (mode === 'login' ? 'Anmelden' : 'Konto erstellen') }}
+        {{
+          loading
+            ? 'Bitte warten...'
+            : (
+                mode === 'login'
+                  ? 'Anmelden'
+                  : 'Code senden'
+              )
+        }}
       </button>
 
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+      <p class="info" *ngIf="infoMessage">{{ infoMessage }}</p>
     </form>
   </section>
 </main>

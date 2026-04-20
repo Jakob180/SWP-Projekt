@@ -1,14 +1,46 @@
 export type TransactionType = 'INCOME' | 'EXPENSE';
 
 export interface AuthRequest {
-  username: string;
+  identifier: string;
   password: string;
+}
+
+export interface RegisterCodeRequest {
+  username: string;
+  email: string;
+  password: string;
+}
+
+export interface RegisterConfirmRequest {
+  email: string;
+  code: string;
+}
+
+export interface PasswordCodeRequest {
+  email: string;
+}
+
+export interface PasswordResetConfirmRequest {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
+export interface MessageResponse {
+  message: string;
 }
 
 export interface AuthResponse {
   userId: number;
   username: string;
   token: string;
+}
+
+export type VerificationMode = 'register' | 'password';
+
+export interface PendingVerification {
+  mode: VerificationMode;
+  email: string;
 }
 
 export interface Transaction {
