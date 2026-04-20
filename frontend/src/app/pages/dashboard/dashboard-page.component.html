@@ -1,4 +1,4 @@
-﻿<div class="dashboard-layout" [class.sidebar-collapsed]="sidebarCollapsed">
+<div class="dashboard-layout" [class.sidebar-collapsed]="sidebarCollapsed">
   <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
     <div class="brand">
       <div class="brand-head">
@@ -39,26 +39,33 @@
         >
           <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span>
           <span class="title">{{ sidebarCollapsed ? item.shortLabel : item.label }}</span>
-          <span class="description" *ngIf="!sidebarCollapsed">{{ item.description }}</span>
         </button>
       </nav>
 
-      <div class="period-quick-switch" *ngIf="activeView === 'period' && !sidebarCollapsed">
-        <p>Zeitraum schnell wechseln</p>
-        <div class="mini-switch">
-          <button type="button" [class.active]="trendGranularity === 'week'" (click)="setTrendGranularity('week')">Woche</button>
-          <button type="button" [class.active]="trendGranularity === 'month'" (click)="setTrendGranularity('month')">Monat</button>
-          <button type="button" [class.active]="trendGranularity === 'year'" (click)="setTrendGranularity('year')">Jahr</button>
-        </div>
-      </div>
     </section>
 
-    <section class="sidebar-card filters">
-      <h3>Zeitraumfilter</h3>
-      <button type="button" [class.active]="filterMode === 'month'" (click)="applyPreset('month')">Aktueller Monat</button>
-      <button type="button" [class.active]="filterMode === 'year'" (click)="applyPreset('year')">Aktuelles Jahr</button>
+    <button class="logout" type="button" (click)="logout()">Abmelden</button>
+  </aside>
 
-      <div class="custom-range">
+  <main class="main-content">
+    <header>
+      <div class="header-top">
+        <div>
+          <p class="kicker">Harbor Finance</p>
+          <h1>{{ currentViewTitle }}</h1>
+          <p>{{ currentViewSubtitle }}</p>
+        </div>
+        <a class="imports-link" routerLink="/imports">Dateien hochladen</a>
+      </div>
+    </header>
+
+    <section class="main-filters" *ngIf="activeView === 'overview'">
+      <h3>Zeitraumfilter</h3>
+      <div class="preset-row">
+        <button type="button" [class.active]="filterMode === 'month'" (click)="applyPreset('month')">Aktueller Monat</button>
+        <button type="button" [class.active]="filterMode === 'year'" (click)="applyPreset('year')">Aktuelles Jahr</button>
+      </div>
+      <div class="custom-row">
         <label>
           Von
           <input type="date" [(ngModel)]="customFrom" />
@@ -70,18 +77,6 @@
         <button type="button" (click)="applyCustomRange()">Zeitraum anwenden</button>
       </div>
     </section>
-
-    <app-upload (importFinished)="refreshAfterImport($event)"></app-upload>
-
-    <button class="logout" type="button" (click)="logout()">Abmelden</button>
-  </aside>
-
-  <main class="main-content">
-    <header>
-      <p class="kicker">Harbor Finance</p>
-      <h1>{{ currentViewTitle }}</h1>
-      <p>{{ currentViewSubtitle }}</p>
-    </header>
 
     <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
@@ -158,19 +153,32 @@
     </section>
 
     <section class="quick-actions" *ngIf="activeView !== 'period'">
-      <article class="action-card">
-        <h3>Neue Transaktion</h3>
+      <article class="action-card transaction-card" [class.income-mode]="transactionType === 'INCOME'" [class.expense-mode]="transactionType === 'EXPENSE'">
+        <div class="transaction-head">
+          <h3>{{ transactionCardTitle }}</h3>
+          <div class="transaction-type-switch" *ngIf="showTransactionTypeSwitch">
+            <button
+              type="button"
+              [class.active]="transactionType === 'INCOME'"
+              (click)="setTransactionType('INCOME')"
+            >
+              Einnahme
+            </button>
+            <button
+              type="button"
+              [class.active]="transactionType === 'EXPENSE'"
+              (click)="setTransactionType('EXPENSE')"
+            >
+              Ausgabe
+            </button>
+          </div>
+          <p class="transaction-type-pill" *ngIf="!showTransactionTypeSwitch">{{ getTransactionTypeLabel(transactionType) }}</p>
+        </div>
+
         <div class="action-grid">
           <label>
-            Betrag
+            {{ transactionAmountLabel }}
             <input type="number" step="0.01" min="0.01" [(ngModel)]="transactionAmount" />
-          </label>
-          <label>
-            Typ
-            <select [(ngModel)]="transactionType">
-              <option value="EXPENSE">Ausgabe</option>
-              <option value="INCOME">Einnahme</option>
-            </select>
           </label>
           <label>
             Kategorie
@@ -185,7 +193,7 @@
             <input type="text" [(ngModel)]="transactionDescription" />
           </label>
         </div>
-        <button type="button" (click)="addTransaction()" [disabled]="actionLoading">Transaktion speichern</button>
+        <button type="button" (click)="addTransaction()" [disabled]="actionLoading">{{ transactionButtonLabel }}</button>
       </article>
 
       <article class="action-card">
@@ -409,4 +417,3 @@
     <div class="loading" *ngIf="loading">Dashboard wird geladen...</div>
   </main>
 </div>
-
