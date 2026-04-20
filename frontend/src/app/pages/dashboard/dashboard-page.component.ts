@@ -1,19 +1,30 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ChartPanelComponent } from '../../components/chart-panel/chart-panel.component';
 import { Asset, DashboardResponse, Subscription, Transaction, TransactionType } from '../../models/api.models';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
 type DashboardView = 'overview' | 'income' | 'expense' | 'period';
+type BudgetState = 'ok' | 'warn' | 'over';
 
 interface SidebarNavItem {
   id: DashboardView;
   label: string;
   shortLabel: string;
   icon: string;
+}
+
+interface BudgetStatus {
+  category: string;
+  budget: number;
+  spent: number;
+  remaining: number;
+  usagePercent: number;
+  usagePercentCapped: number;
+  state: BudgetState;
 }
 
 @Component({
@@ -26,6 +37,7 @@ interface SidebarNavItem {
 export class DashboardPageComponent implements OnInit {
   private static readonly MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
   private static readonly THEME_STORAGE_KEY = 'finance_dashboard_theme';
+  private static readonly BUDGET_STORAGE_KEY = 'finance_dashboard_budgets';
 
   dashboard?: DashboardResponse;
   loading = true;
@@ -52,6 +64,12 @@ export class DashboardPageComponent implements OnInit {
 
   assetName = '';
   assetValue: number | null = null;
+  budgetCategory = '';
+  budgetAmount: number | null = null;
+  budgetMessage = '';
+  budgetError = '';
+  budgetStatuses: BudgetStatus[] = [];
+  private readonly budgets = new Map<string, number>();
 
   sidebarCollapsed = false;
   darkMode = false;
@@ -83,13 +101,15 @@ export class DashboardPageComponent implements OnInit {
   constructor(
     private readonly apiService: ApiService,
     private readonly authService: AuthService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
     this.initializeSidebar();
     this.initializeTheme();
-    this.applyPreset('month');
+    this.initializeBudgets();
+    this.applyInitialRange();
   }
 
   get username(): string {
@@ -378,6 +398,32 @@ export class DashboardPageComponent implements OnInit {
     this.router.navigateByUrl('/login');
   }
 
+  private applyInitialRange(): void {
+    const queryParams = this.route.snapshot.queryParamMap;
+    const from = queryParams.get('from');
+    const to = queryParams.get('to');
+    const imported = queryParams.get('imported');
+
+    if (from && to) {
+      this.filterMode = 'custom';
+      this.customFrom = from;
+      this.customTo = to;
+      this.loadDashboard(from, to);
+    } else {
+      this.applyPreset('month');
+    }
+
+    if (imported === 'true') {
+      this.actionMessage = 'Import abgeschlossen. Die importierten Transaktionen werden jetzt im passenden Zeitraum angezeigt.';
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { imported: null, from, to },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+    }
+  }
+
   formatCurrency(value: number): string {
     return new Intl.NumberFormat('de-AT', {
       style: 'currency',
@@ -396,6 +442,7 @@ export class DashboardPageComponent implements OnInit {
       next: (dashboard) => {
         this.dashboard = dashboard;
         this.rebuildVisualSeries();
+        this.rebuildBudgetStatuses();
         this.loading = false;
       },
       error: (error) => {
@@ -640,6 +687,46 @@ export class DashboardPageComponent implements OnInit {
     this.loadDashboard(from, to);
   }
 
+  addOrUpdateBudget(): void {
+    const category = this.budgetCategory.trim();
+    if (!category || !this.budgetAmount || this.budgetAmount <= 0) {
+      this.budgetError = 'Bitte Kategorie und gueltiges Budget angeben.';
+      this.budgetMessage = '';
+      return;
+    }
+
+    this.budgets.set(category, this.round(this.budgetAmount));
+    this.persistBudgets();
+    this.rebuildBudgetStatuses();
+
+    this.budgetCategory = '';
+    this.budgetAmount = null;
+    this.budgetError = '';
+    this.budgetMessage = 'Budget gespeichert.';
+  }
+
+  removeBudget(category: string): void {
+    this.budgets.delete(category);
+    this.persistBudgets();
+    this.rebuildBudgetStatuses();
+    this.budgetMessage = 'Budget entfernt.';
+    this.budgetError = '';
+  }
+
+  getBudgetStateLabel(state: BudgetState): string {
+    if (state === 'over') {
+      return 'Ueberzogen';
+    }
+    if (state === 'warn') {
+      return 'Nahe am Limit';
+    }
+    return 'Im Limit';
+  }
+
+  abs(value: number): number {
+    return Math.abs(value);
+  }
+
   private initializeTheme(): void {
     if (typeof window === 'undefined') {
       return;
@@ -675,5 +762,81 @@ export class DashboardPageComponent implements OnInit {
     if (typeof window !== 'undefined') {
       localStorage.setItem(DashboardPageComponent.THEME_STORAGE_KEY, this.darkMode ? 'dark' : 'light');
     }
+  }
+
+  private initializeBudgets(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const raw = localStorage.getItem(DashboardPageComponent.BUDGET_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const data = JSON.parse(raw) as Record<string, number>;
+      for (const [category, value] of Object.entries(data)) {
+        if (category.trim() && Number.isFinite(value) && value > 0) {
+          this.budgets.set(category, Number(value));
+        }
+      }
+    } catch {
+      // Ignore malformed localStorage payloads.
+    }
+  }
+
+  private persistBudgets(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const payload: Record<string, number> = {};
+    for (const [category, value] of this.budgets.entries()) {
+      payload[category] = value;
+    }
+
+    localStorage.setItem(DashboardPageComponent.BUDGET_STORAGE_KEY, JSON.stringify(payload));
+  }
+
+  private rebuildBudgetStatuses(): void {
+    const transactions = this.dashboard?.transactions ?? [];
+    const spentByCategory = new Map<string, number>();
+
+    for (const transaction of transactions) {
+      if (transaction.type !== 'EXPENSE') {
+        continue;
+      }
+      const category = (transaction.category || 'Unkategorisiert').trim() || 'Unkategorisiert';
+      spentByCategory.set(category, (spentByCategory.get(category) ?? 0) + (Number(transaction.amount) || 0));
+    }
+
+    const statuses: BudgetStatus[] = [];
+    for (const [category, budget] of this.budgets.entries()) {
+      const spent = this.round(spentByCategory.get(category) ?? 0);
+      const remaining = this.round(budget - spent);
+      const usagePercentRaw = budget > 0 ? (spent / budget) * 100 : 0;
+      const usagePercent = this.round(Math.max(0, usagePercentRaw));
+      const usagePercentCapped = Math.min(100, usagePercent);
+
+      let state: BudgetState = 'ok';
+      if (usagePercent >= 100) {
+        state = 'over';
+      } else if (usagePercent >= 85) {
+        state = 'warn';
+      }
+
+      statuses.push({
+        category,
+        budget: this.round(budget),
+        spent,
+        remaining,
+        usagePercent,
+        usagePercentCapped,
+        state
+      });
+    }
+
+    this.budgetStatuses = statuses.sort((a, b) => a.category.localeCompare(b.category));
   }
 }

@@ -8,8 +8,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "users")
-public class AppUser {
+@Table(name = "user_login_profiles")
+public class UserLoginProfile {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,11 +18,8 @@ public class AppUser {
     @Column(nullable = false, unique = true, length = 80)
     private String username;
 
-    @Column(unique = true, length = 255)
+    @Column(nullable = false, unique = true, length = 255)
     private String email;
-
-    @Column(nullable = false)
-    private String password;
 
     public Long getId() {
         return id;
@@ -40,14 +37,6 @@ public class AppUser {
         this.username = username;
     }
 
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
     public String getEmail() {
         return email;
     }
@@ -55,5 +44,4 @@ public class AppUser {
     public void setEmail(String email) {
         this.email = email;
     }
-
 }

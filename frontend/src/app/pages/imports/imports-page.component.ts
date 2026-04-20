@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FileImportResponse } from '../../models/api.models';
 import { UploadComponent } from '../../components/upload/upload.component';
 
@@ -25,17 +25,27 @@ export class ImportsPageComponent {
   documents: StoredDocument[] = [];
   documentMessage = '';
 
-  constructor() {
+  constructor(private readonly router: Router) {
     this.loadStoredDocuments();
   }
 
   onBankImportFinished(response: FileImportResponse): void {
     if (response.importedFrom && response.importedTo) {
       this.documentMessage = `${response.importedTransactions} Transaktionen importiert (${response.importedFrom} bis ${response.importedTo}).`;
+      void this.router.navigate(['/dashboard'], {
+        queryParams: {
+          from: response.importedFrom,
+          to: response.importedTo,
+          imported: 'true'
+        }
+      });
       return;
     }
 
     this.documentMessage = `${response.importedTransactions} Transaktionen importiert.`;
+    void this.router.navigate(['/dashboard'], {
+      queryParams: { imported: 'true' }
+    });
   }
 
   onDocumentsSelected(event: Event): void {

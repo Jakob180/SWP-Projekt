@@ -39,7 +39,7 @@
 
 .mode-toggle {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.5rem;
   background: #e0f2fe;
   border-radius: 12px;
@@ -98,6 +98,11 @@ form button[disabled] {
 
 .error {
   color: #b91c1c;
+  margin: 0;
+}
+
+.info {
+  color: #0f766e;
   margin: 0;
 }
 
