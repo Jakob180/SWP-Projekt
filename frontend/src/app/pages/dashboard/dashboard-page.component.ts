@@ -1,10 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { Subscription as RxSubscription, interval } from 'rxjs';
 import { ChartPanelComponent } from '../../components/chart-panel/chart-panel.component';
-import { Asset, DashboardResponse, Subscription as FinanceSubscription, Transaction, TransactionType } from '../../models/api.models';
+import { Asset, DashboardResponse, Subscription, Transaction, TransactionType } from '../../models/api.models';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -27,10 +26,6 @@ interface SidebarNavItem {
 export class DashboardPageComponent implements OnInit {
   private static readonly MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
   private static readonly THEME_STORAGE_KEY = 'finance_dashboard_theme';
-  private static readonly AUTO_REFRESH_MS = 15000;
-
-  private autoRefreshSubscription?: RxSubscription;
-  private dashboardLoadSubscription?: RxSubscription;
 
   dashboard?: DashboardResponse;
   loading = true;
@@ -39,7 +34,7 @@ export class DashboardPageComponent implements OnInit {
   actionError = '';
   actionLoading = false;
 
-  filterMode: 'month' | 'year' | 'custom' | 'all' = 'month';
+  filterMode: 'month' | 'year' | 'custom' = 'month';
   customFrom = '';
   customTo = '';
 
@@ -48,7 +43,7 @@ export class DashboardPageComponent implements OnInit {
 
   transactionAmount: number | null = null;
   transactionType: TransactionType = 'EXPENSE';
-  transactionCategory = 'Lebensmittel';
+  transactionCategory = '';
   transactionDescription = '';
   transactionDate = this.todayDateString();
 
@@ -78,8 +73,6 @@ export class DashboardPageComponent implements OnInit {
   readonly palette = ['#0ea5e9', '#06b6d4', '#14b8a6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
   readonly incomePalette = ['#22c55e', '#16a34a', '#84cc16', '#2dd4bf', '#38bdf8', '#4ade80'];
   readonly expensePalette = ['#ef4444', '#f97316', '#f59e0b', '#e11d48', '#fb7185', '#dc2626'];
-  readonly incomeCategories = ['Gehalt', 'Freelance', 'Bonus', 'Verkauf', 'Rueckzahlung', 'Investition', 'Sonstiges'];
-  readonly expenseCategories = ['Lebensmittel', 'Miete', 'Transport', 'Freizeit', 'Shopping', 'Gesundheit', 'Rechnungen', 'Reisen', 'Sonstiges'];
   readonly sidebarNavItems: SidebarNavItem[] = [
     { id: 'overview', label: 'Uebersicht', shortLabel: 'Ue', icon: 'U' },
     { id: 'income', label: 'Einnahmen', shortLabel: 'Ein', icon: '+' },
@@ -96,14 +89,7 @@ export class DashboardPageComponent implements OnInit {
   ngOnInit(): void {
     this.initializeSidebar();
     this.initializeTheme();
-    this.ensureValidTransactionCategory();
     this.applyPreset('month');
-    this.startAutoRefresh();
-  }
-
-  ngOnDestroy(): void {
-    this.autoRefreshSubscription?.unsubscribe();
-    this.dashboardLoadSubscription?.unsubscribe();
   }
 
   get username(): string {
@@ -124,22 +110,6 @@ export class DashboardPageComponent implements OnInit {
   }
 
   get currentViewSubtitle(): string {
-    if (this.filterMode === 'all' || (!this.activeFrom && !this.activeTo)) {
-      if (this.activeView === 'period') {
-        return `Vergleich auf ${this.trendGranularityLabel}-Basis ueber die Gesamtzeit`;
-      }
-
-      if (this.activeView === 'income') {
-        return 'Einnahmen ueber die Gesamtzeit';
-      }
-
-      if (this.activeView === 'expense') {
-        return 'Ausgaben ueber die Gesamtzeit';
-      }
-
-      return 'Uebersicht ueber die Gesamtzeit';
-    }
-
     const fromLabel = this.formatDateLabel(this.activeFrom);
     const toLabel = this.formatDateLabel(this.activeTo);
 
@@ -245,10 +215,8 @@ export class DashboardPageComponent implements OnInit {
 
     if (view === 'income') {
       this.transactionType = 'INCOME';
-      this.ensureValidTransactionCategory();
     } else if (view === 'expense') {
       this.transactionType = 'EXPENSE';
-      this.ensureValidTransactionCategory();
     }
   }
 
@@ -267,19 +235,10 @@ export class DashboardPageComponent implements OnInit {
 
   setTransactionType(type: TransactionType): void {
     this.transactionType = type;
-    this.ensureValidTransactionCategory();
   }
 
-  applyPreset(mode: 'month' | 'year' | 'all'): void {
+  applyPreset(mode: 'month' | 'year'): void {
     this.filterMode = mode;
-
-    if (mode === 'all') {
-      this.customFrom = '';
-      this.customTo = '';
-      this.loadDashboard();
-      return;
-    }
-
     const today = new Date();
 
     if (mode === 'month') {
@@ -333,7 +292,7 @@ export class DashboardPageComponent implements OnInit {
         this.applyTransactionLocally(createdTransaction);
 
         this.transactionAmount = null;
-        this.transactionCategory = this.getDefaultCategoryForType(savedType);
+        this.transactionCategory = '';
         this.transactionDescription = '';
         if (this.activeView === 'income') {
           this.transactionType = 'INCOME';
@@ -427,14 +386,13 @@ export class DashboardPageComponent implements OnInit {
     }).format(value ?? 0);
   }
 
-  private loadDashboard(from?: string, to?: string): void {
-    this.dashboardLoadSubscription?.unsubscribe();
+  private loadDashboard(from: string, to: string): void {
     this.loading = true;
     this.errorMessage = '';
-    this.activeFrom = from ?? '';
-    this.activeTo = to ?? '';
+    this.activeFrom = from;
+    this.activeTo = to;
 
-    this.dashboardLoadSubscription = this.apiService.getDashboard({ from, to }).subscribe({
+    this.apiService.getDashboard({ from, to }).subscribe({
       next: (dashboard) => {
         this.dashboard = dashboard;
         this.rebuildVisualSeries();
@@ -605,30 +563,22 @@ export class DashboardPageComponent implements OnInit {
     }
 
     const current = this.dashboard.transactions.filter((item) => item.id !== transaction.id);
-    const transactions = [transaction, ...current].sort((a, b) => {
+    this.dashboard.transactions = [transaction, ...current].sort((a, b) => {
       const dateCompare = b.date.localeCompare(a.date);
       return dateCompare !== 0 ? dateCompare : b.id - a.id;
     });
-
-    this.dashboard = {
-      ...this.dashboard,
-      transactions
-    };
 
     this.recalculateDashboardTotals();
     this.rebuildVisualSeries();
   }
 
-  private applySubscriptionLocally(subscription: FinanceSubscription): void {
+  private applySubscriptionLocally(subscription: Subscription): void {
     if (!this.dashboard) {
       return;
     }
 
     const current = this.dashboard.subscriptions.filter((item) => item.id !== subscription.id);
-    this.dashboard = {
-      ...this.dashboard,
-      subscriptions: [subscription, ...current]
-    };
+    this.dashboard.subscriptions = [subscription, ...current];
     this.recalculateDashboardTotals();
     this.rebuildVisualSeries();
   }
@@ -639,10 +589,7 @@ export class DashboardPageComponent implements OnInit {
     }
 
     const current = this.dashboard.assets.filter((item) => item.id !== asset.id);
-    this.dashboard = {
-      ...this.dashboard,
-      assets: [asset, ...current]
-    };
+    this.dashboard.assets = [asset, ...current];
     this.recalculateDashboardTotals();
     this.rebuildVisualSeries();
   }
@@ -666,22 +613,14 @@ export class DashboardPageComponent implements OnInit {
     const totalAssets = this.dashboard.assets
       .reduce((sum, item) => sum + (Number(item.value) || 0), 0);
 
-    this.dashboard = {
-      ...this.dashboard,
-      totalIncome: this.round(totalIncome),
-      totalExpenses: this.round(totalExpenses),
-      totalSubscriptions: this.round(totalSubscriptions),
-      totalAssets: this.round(totalAssets),
-      totalBalance: this.round(totalAssets + totalIncome - totalExpenses)
-    };
+    this.dashboard.totalIncome = this.round(totalIncome);
+    this.dashboard.totalExpenses = this.round(totalExpenses);
+    this.dashboard.totalSubscriptions = this.round(totalSubscriptions);
+    this.dashboard.totalAssets = this.round(totalAssets);
+    this.dashboard.totalBalance = this.round(totalAssets + totalIncome - totalExpenses);
   }
 
   private refreshDashboardAfterMutation(targetDate?: string): void {
-    if (this.filterMode === 'all') {
-      this.loadDashboard();
-      return;
-    }
-
     let from = this.activeFrom || this.customFrom;
     let to = this.activeTo || this.customTo;
 
@@ -724,55 +663,6 @@ export class DashboardPageComponent implements OnInit {
     }
 
     this.sidebarCollapsed = window.innerWidth < 1400;
-  }
-
-  private startAutoRefresh(): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    this.autoRefreshSubscription?.unsubscribe();
-    this.autoRefreshSubscription = interval(DashboardPageComponent.AUTO_REFRESH_MS).subscribe(() => {
-      if (this.actionLoading || this.loading || document.hidden) {
-        return;
-      }
-
-      this.reloadCurrentFilter();
-    });
-  }
-
-  private reloadCurrentFilter(): void {
-    if (this.filterMode === 'all') {
-      this.loadDashboard();
-      return;
-    }
-
-    const from = this.activeFrom || this.customFrom;
-    const to = this.activeTo || this.customTo;
-
-    if (from || to) {
-      this.loadDashboard(from || undefined, to || undefined);
-      return;
-    }
-
-    this.loadDashboard();
-  }
-
-  get transactionCategoryOptions(): string[] {
-    return this.transactionType === 'INCOME'
-      ? this.incomeCategories
-      : this.expenseCategories;
-  }
-
-  private ensureValidTransactionCategory(): void {
-    const options = this.transactionCategoryOptions;
-    if (!options.includes(this.transactionCategory)) {
-      this.transactionCategory = options[0];
-    }
-  }
-
-  private getDefaultCategoryForType(type: TransactionType): string {
-    return type === 'INCOME' ? this.incomeCategories[0] : this.expenseCategories[0];
   }
 
   private applyTheme(): void {
