@@ -2,7 +2,7 @@
   <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
     <div class="brand">
       <div class="brand-head">
-        <h2>Harbor Finance</h2>
+        <h2>Budget Tracker</h2>
         <button
           type="button"
           class="sidebar-toggle"
@@ -51,7 +51,7 @@
     <header>
       <div class="header-top">
         <div>
-          <p class="kicker">Harbor Finance</p>
+          <p class="kicker">Budget Tracker</p>
           <h1>{{ currentViewTitle }}</h1>
           <p>{{ currentViewSubtitle }}</p>
         </div>
@@ -64,6 +64,7 @@
       <div class="preset-row">
         <button type="button" [class.active]="filterMode === 'month'" (click)="applyPreset('month')">Aktueller Monat</button>
         <button type="button" [class.active]="filterMode === 'year'" (click)="applyPreset('year')">Aktuelles Jahr</button>
+        <button type="button" [class.active]="filterMode === 'all'" (click)="applyPreset('all')">Gesamtzeit</button>
       </div>
       <div class="custom-row">
         <label>
@@ -182,7 +183,9 @@
           </label>
           <label>
             Kategorie
-            <input type="text" [(ngModel)]="transactionCategory" />
+            <select [(ngModel)]="transactionCategory">
+              <option *ngFor="let category of transactionCategoryOptions" [ngValue]="category">{{ category }}</option>
+            </select>
           </label>
           <label>
             Datum

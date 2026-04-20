@@ -13,8 +13,8 @@
 .imports-header {
   background: var(--panel-bg-strong);
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
-  padding: 0.9rem 1rem;
+  border-radius: 22px;
+  padding: 1rem 1.08rem;
   box-shadow: var(--panel-shadow);
   display: flex;
   justify-content: space-between;
@@ -27,7 +27,7 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #0284c7;
+  color: var(--accent-primary);
   font-weight: 700;
 }
 
@@ -45,17 +45,19 @@
 .back-link {
   text-decoration: none;
   white-space: nowrap;
-  border: 1px solid rgba(14, 116, 144, 0.32);
-  border-radius: 10px;
-  color: #0c4a6e;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 12px;
+  color: var(--accent-primary);
   font-weight: 700;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(20, 184, 166, 0.16));
-  padding: 0.54rem 0.78rem;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(20, 184, 166, 0.12));
+  padding: 0.58rem 0.84rem;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.08);
 }
 
 .back-link:hover {
-  border-color: rgba(14, 116, 144, 0.5);
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(20, 184, 166, 0.22));
+  border-color: rgba(37, 99, 235, 0.28);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(20, 184, 166, 0.18));
+  transform: translateY(-1px);
 }
 
 .imports-grid {
@@ -67,12 +69,13 @@
 .imports-card {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
+  border-radius: 22px;
   box-shadow: var(--panel-shadow);
-  padding: 0.9rem;
+  padding: 1rem;
   display: grid;
   align-content: start;
   gap: 0.72rem;
+  backdrop-filter: blur(14px);
 }
 
 .imports-card h2 {
@@ -88,27 +91,32 @@
 
 .imports-card input[type='file'] {
   border: 1px dashed var(--field-border);
-  border-radius: 10px;
-  padding: 0.62rem;
+  border-radius: 14px;
+  padding: 0.72rem;
   background: var(--field-bg);
 }
 
 .imports-card button {
   justify-self: start;
   border: none;
-  border-radius: 11px;
-  padding: 0.52rem 0.92rem;
-  background: linear-gradient(135deg, #0369a1, #0f766e);
+  border-radius: 14px;
+  padding: 0.64rem 1rem;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   color: #fff;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 14px 24px rgba(37, 99, 235, 0.2);
+}
+
+.imports-card button:hover {
+  transform: translateY(-1px);
 }
 
 .status {
   margin: 0;
   border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  background: rgba(186, 230, 253, 0.26);
+  border-radius: 12px;
+  background: rgba(219, 234, 254, 0.42);
   padding: 0.5rem 0.66rem;
   color: var(--ink-strong);
   font-size: 0.9rem;
@@ -140,8 +148,8 @@
 
 .documents-list li {
   border: 1px solid var(--panel-border);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.5);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.56);
   padding: 0.56rem 0.62rem;
   display: flex;
   align-items: center;
