@@ -446,12 +446,60 @@ public class FileImportService {
             if (containsAny(normalized, "GEHALT", "LOHN", "SALARY")) {
                 return "Gehalt";
             }
+            if (containsAny(normalized, "HONORAR", "FREELANCE", "SELBSTSTAENDIG", "SELBSTANDIG")) {
+                return "Selbststaendige Arbeit";
+            }
+            if (containsAny(normalized, "ZINS", "INTEREST")) {
+                return "Zinsen";
+            }
+            if (containsAny(normalized, "BONUS", "PRAMIE", "PRAEMIE")) {
+                return "Bonus";
+            }
+            if (containsAny(normalized, "RUECKERSTATTUNG", "RUCKERSTATTUNG", "REFUND", "RETURE", "RETOUR")) {
+                return "Rueckerstattung";
+            }
+            if (containsAny(normalized, "BEIHILFE", "KINDERGELD", "FAMILIENBEIHILFE", "FOERDERUNG", "FORDERUNG")) {
+                return "Beihilfe";
+            }
             if (containsAny(normalized, "UEBERWEISUNG", "UBERWEISUNG", "SCT", "SEPA", "GUTSCHRIFT")) {
                 return "Ueberweisung Eingang";
             }
-            return "Einnahmen";
+            return "Sonstige Einnahmen";
         }
 
+        if (containsAny(normalized, "MIETE", "RENT")) {
+            return "Miete";
+        }
+        if (containsAny(normalized, "SPAR", "BILLA", "HOFER", "LIDL", "PENNY", "DM", "MPRICE", "M-PREIS", "MPREIS")) {
+            return "Lebensmittel";
+        }
+        if (containsAny(normalized, "RESTAURANT", "CAFE", "PIZZA", "MCDONALD", "BURGER", "LIEFERANDO", "DOENER", "KEBAB")) {
+            return "Essen gehen";
+        }
+        if (containsAny(normalized, "AMAZON", "ZALANDO", "H&M", "HM", "IKEA")) {
+            return "Shopping";
+        }
+        if (containsAny(normalized, "SHELL", "OMV", "BP", "JET", "TANK", "TANKSTELLE")) {
+            return "Tanken";
+        }
+        if (containsAny(normalized, "OEBB", "WLINIE", "WIENER LINIEN", "UBER", "BOLT", "TAXI", "PARKEN")) {
+            return "Transport";
+        }
+        if (containsAny(normalized, "STROM", "GAS", "ENERGIE", "WASSER", "INTERNET", "A1", "MAGENTA", "DREI")) {
+            return "Fixkosten";
+        }
+        if (containsAny(normalized, "VERSICHERUNG", "ALLIANZ", "UNIQA", "DONAU")) {
+            return "Versicherung";
+        }
+        if (containsAny(normalized, "ARZT", "APOTHEKE", "MEDIK", "KRANKEN")) {
+            return "Gesundheit";
+        }
+        if (containsAny(normalized, "NETFLIX", "SPOTIFY", "DISNEY", "STEAM", "PLAYSTATION", "XBOX")) {
+            return "Freizeit";
+        }
+        if (containsAny(normalized, "BAR", "BANKOMAT", "ATM", "BARGELD")) {
+            return "Barbehebung";
+        }
         if (containsAny(normalized, "POS", "KARTENZAHLUNG", "CARD")) {
             return "Kartenzahlung";
         }
@@ -462,7 +510,7 @@ public class FileImportService {
             return "Ueberweisung Ausgang";
         }
 
-        return "Ausgaben";
+        return "Sonstige Ausgaben";
     }
 
     private String extractPurpose(String description) {

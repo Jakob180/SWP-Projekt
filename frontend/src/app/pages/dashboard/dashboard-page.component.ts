@@ -486,7 +486,7 @@ export class DashboardPageComponent implements OnInit {
 
     for (const transaction of transactions) {
       const amount = Number(transaction.amount) || 0;
-      const category = (transaction.category || 'Unkategorisiert').trim() || 'Unkategorisiert';
+      const category = this.getDisplayCategory(transaction);
 
       if (transaction.type === 'EXPENSE') {
         expenseMap.set(category, (expenseMap.get(category) ?? 0) + amount);
@@ -594,6 +594,73 @@ export class DashboardPageComponent implements OnInit {
 
   private round(value: number): number {
     return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  private normalizeCategoryLabel(category: string | null | undefined, type: TransactionType): string {
+    const normalized = (category || 'Unkategorisiert').trim() || 'Unkategorisiert';
+
+    if (type === 'INCOME' && normalized === 'Einnahmen') {
+      return 'Sonstige Einnahmen';
+    }
+
+    if (type === 'EXPENSE' && normalized === 'Ausgaben') {
+      return 'Sonstige Ausgaben';
+    }
+
+    return normalized;
+  }
+
+  private getDisplayCategory(transaction: Transaction): string {
+    const normalizedCategory = this.normalizeCategoryLabel(transaction.category, transaction.type);
+
+    if (normalizedCategory !== 'Sonstige Einnahmen' && normalizedCategory !== 'Sonstige Ausgaben') {
+      return normalizedCategory;
+    }
+
+    return this.inferCategoryFromDescription(transaction.description, transaction.type, normalizedCategory);
+  }
+
+  private inferCategoryFromDescription(description: string | null | undefined, type: TransactionType, fallback: string): string {
+    const normalized = this.normalizeForMatching(description);
+
+    if (type === 'INCOME') {
+      if (this.containsAny(normalized, 'GEHALT', 'LOHN', 'SALARY')) return 'Gehalt';
+      if (this.containsAny(normalized, 'HONORAR', 'FREELANCE', 'SELBSTSTAENDIG', 'SELBSTANDIG')) return 'Selbststaendige Arbeit';
+      if (this.containsAny(normalized, 'ZINS', 'INTEREST')) return 'Zinsen';
+      if (this.containsAny(normalized, 'BONUS', 'PRAMIE', 'PRAEMIE')) return 'Bonus';
+      if (this.containsAny(normalized, 'RUECKERSTATTUNG', 'RUCKERSTATTUNG', 'REFUND', 'RETURE', 'RETOUR')) return 'Rueckerstattung';
+      if (this.containsAny(normalized, 'BEIHILFE', 'KINDERGELD', 'FAMILIENBEIHILFE', 'FOERDERUNG', 'FORDERUNG')) return 'Beihilfe';
+      if (this.containsAny(normalized, 'UEBERWEISUNG', 'UBERWEISUNG', 'SCT', 'SEPA', 'GUTSCHRIFT')) return 'Ueberweisung Eingang';
+      return fallback;
+    }
+
+    if (this.containsAny(normalized, 'MIETE', 'RENT')) return 'Miete';
+    if (this.containsAny(normalized, 'SPAR', 'BILLA', 'HOFER', 'LIDL', 'PENNY', 'DM', 'MPRICE', 'M-PREIS', 'MPREIS')) return 'Lebensmittel';
+    if (this.containsAny(normalized, 'RESTAURANT', 'CAFE', 'PIZZA', 'MCDONALD', 'BURGER', 'LIEFERANDO', 'DOENER', 'KEBAB')) return 'Essen gehen';
+    if (this.containsAny(normalized, 'AMAZON', 'ZALANDO', 'H&M', 'HM', 'IKEA')) return 'Shopping';
+    if (this.containsAny(normalized, 'SHELL', 'OMV', 'BP', 'JET', 'TANK', 'TANKSTELLE')) return 'Tanken';
+    if (this.containsAny(normalized, 'OEBB', 'WIENER LINIEN', 'UBER', 'BOLT', 'TAXI', 'PARKEN')) return 'Transport';
+    if (this.containsAny(normalized, 'STROM', 'GAS', 'ENERGIE', 'WASSER', 'INTERNET', 'A1', 'MAGENTA', 'DREI')) return 'Fixkosten';
+    if (this.containsAny(normalized, 'VERSICHERUNG', 'ALLIANZ', 'UNIQA', 'DONAU')) return 'Versicherung';
+    if (this.containsAny(normalized, 'ARZT', 'APOTHEKE', 'MEDIK', 'KRANKEN')) return 'Gesundheit';
+    if (this.containsAny(normalized, 'NETFLIX', 'SPOTIFY', 'DISNEY', 'STEAM', 'PLAYSTATION', 'XBOX')) return 'Freizeit';
+    if (this.containsAny(normalized, 'BAR', 'BANKOMAT', 'ATM', 'BARGELD')) return 'Barbehebung';
+    if (this.containsAny(normalized, 'LASTSCHRIFT', 'DIRECT DEBIT')) return 'Lastschrift';
+    if (this.containsAny(normalized, 'UEBERWEISUNG', 'UBERWEISUNG', 'SCT', 'SEPA', 'TRANSFER')) return 'Ueberweisung Ausgang';
+    if (this.containsAny(normalized, 'POS', 'KARTENZAHLUNG', 'CARD')) return 'Kartenzahlung';
+
+    return fallback;
+  }
+
+  private normalizeForMatching(text: string | null | undefined): string {
+    return (text || '')
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  private containsAny(text: string, ...keywords: string[]): boolean {
+    return keywords.some((keyword) => text.includes(keyword));
   }
 
   private isDateInActiveRange(date: string): boolean {
@@ -807,7 +874,7 @@ export class DashboardPageComponent implements OnInit {
       if (transaction.type !== 'EXPENSE') {
         continue;
       }
-      const category = (transaction.category || 'Unkategorisiert').trim() || 'Unkategorisiert';
+      const category = this.getDisplayCategory(transaction);
       spentByCategory.set(category, (spentByCategory.get(category) ?? 0) + (Number(transaction.amount) || 0));
     }
 
