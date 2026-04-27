@@ -393,6 +393,45 @@ export class DashboardPageComponent implements OnInit {
     });
   }
 
+  deleteAllData(): void {
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('Wirklich alle Transaktionen, Abos und Assets loeschen?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    this.actionLoading = true;
+    this.actionError = '';
+    this.actionMessage = '';
+
+    this.apiService.deleteAllData().subscribe({
+      next: () => {
+        if (this.dashboard) {
+          this.dashboard.transactions = [];
+          this.dashboard.subscriptions = [];
+          this.dashboard.assets = [];
+          this.dashboard.totalIncome = 0;
+          this.dashboard.totalExpenses = 0;
+          this.dashboard.totalSubscriptions = 0;
+          this.dashboard.totalAssets = 0;
+          this.dashboard.totalBalance = 0;
+        }
+
+        this.budgets.clear();
+        this.persistBudgets();
+        this.rebuildVisualSeries();
+        this.rebuildBudgetStatuses();
+        this.actionLoading = false;
+        this.actionMessage = 'Alle Daten wurden geloescht.';
+      },
+      error: (error) => {
+        this.actionLoading = false;
+        this.actionError = error?.error?.message ?? 'Alle Daten konnten nicht geloescht werden.';
+      }
+    });
+  }
+
   logout(): void {
     this.authService.logout();
     this.router.navigateByUrl('/login');

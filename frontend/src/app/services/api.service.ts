@@ -67,4 +67,8 @@ export class ApiService {
     formData.append('file', file);
     return this.http.post<FileImportResponse>(`${API_BASE_URL}/import/transactions`, formData);
   }
+
+  deleteAllData(): Observable<void> {
+    return this.http.delete<void>(`${API_BASE_URL}/dashboard/all-data`);
+  }
 }

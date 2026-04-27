@@ -47,6 +47,10 @@ public class AssetService {
         assetRepository.delete(asset);
     }
 
+    public void deleteAllAssets(Long userId) {
+        assetRepository.deleteByUserId(userId);
+    }
+
     private void applyRequestToEntity(Asset entity, AssetRequest request) {
         entity.setName(request.name().trim());
         entity.setValue(request.value());

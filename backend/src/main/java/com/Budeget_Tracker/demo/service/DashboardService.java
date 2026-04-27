@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -32,6 +33,13 @@ public class DashboardService {
         this.transactionService = transactionService;
         this.subscriptionService = subscriptionService;
         this.assetService = assetService;
+    }
+
+    @Transactional
+    public void deleteAllData(Long userId) {
+        transactionService.deleteAllTransactions(userId);
+        subscriptionService.deleteAllSubscriptions(userId);
+        assetService.deleteAllAssets(userId);
     }
 
     public DashboardResponse getDashboard(Long userId, LocalDate from, LocalDate to) {

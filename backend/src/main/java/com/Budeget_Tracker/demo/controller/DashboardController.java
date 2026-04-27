@@ -5,9 +5,12 @@ import com.Budeget_Tracker.demo.security.CurrentUserProvider;
 import com.Budeget_Tracker.demo.service.DashboardService;
 import java.time.LocalDate;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -29,5 +32,12 @@ public class DashboardController {
     ) {
         Long userId = currentUserProvider.getCurrentUserId();
         return dashboardService.getDashboard(userId, from, to);
+    }
+
+    @DeleteMapping("/all-data")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAllData() {
+        Long userId = currentUserProvider.getCurrentUserId();
+        dashboardService.deleteAllData(userId);
     }
 }

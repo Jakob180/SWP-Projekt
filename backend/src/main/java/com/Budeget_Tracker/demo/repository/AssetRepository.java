@@ -9,4 +9,6 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     List<Asset> findByUserIdOrderByNameAsc(Long userId);
 
     Optional<Asset> findByIdAndUserId(Long id, Long userId);
+
+    void deleteByUserId(Long userId);
 }

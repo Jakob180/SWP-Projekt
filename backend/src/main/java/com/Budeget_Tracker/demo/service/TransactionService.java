@@ -65,6 +65,10 @@ public class TransactionService {
         transactionRepository.delete(transaction);
     }
 
+    public void deleteAllTransactions(Long userId) {
+        transactionRepository.deleteByUserId(userId);
+    }
+
     public int importTransactions(Long userId, List<TransactionRequest> requests) {
         if (requests.isEmpty()) {
             return 0;

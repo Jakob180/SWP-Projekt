@@ -9,4 +9,6 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     List<Subscription> findByUserIdOrderByNameAsc(Long userId);
 
     Optional<Subscription> findByIdAndUserId(Long id, Long userId);
+
+    void deleteByUserId(Long userId);
 }

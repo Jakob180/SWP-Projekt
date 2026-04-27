@@ -47,6 +47,10 @@ public class SubscriptionService {
         subscriptionRepository.delete(subscription);
     }
 
+    public void deleteAllSubscriptions(Long userId) {
+        subscriptionRepository.deleteByUserId(userId);
+    }
+
     private void applyRequestToEntity(Subscription entity, SubscriptionRequest request) {
         entity.setName(request.name().trim());
         entity.setMonthlyCost(request.monthlyCost());

@@ -24,4 +24,6 @@ public interface FinanceTransactionRepository extends JpaRepository<FinanceTrans
     );
 
     Optional<FinanceTransaction> findByIdAndUserId(Long id, Long userId);
+
+    void deleteByUserId(Long userId);
 }

@@ -109,6 +109,21 @@
   background: linear-gradient(135deg, rgba(14, 165, 233, 0.34), rgba(20, 184, 166, 0.26));
 }
 
+.danger-toggle {
+  border-color: rgba(254, 202, 202, 0.34);
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.28), rgba(220, 38, 38, 0.22));
+}
+
+.danger-toggle:hover:not(:disabled) {
+  border-color: rgba(252, 165, 165, 0.72);
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.48), rgba(239, 68, 68, 0.28));
+}
+
+.danger-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .theme-toggle-icon {
   font-size: 0.95rem;
   line-height: 1;

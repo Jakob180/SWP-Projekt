@@ -27,6 +27,18 @@
       <span>{{ darkMode ? 'Lightmode' : 'Darkmode' }}</span>
     </button>
 
+    <button
+      type="button"
+      class="theme-toggle danger-toggle"
+      (click)="deleteAllData()"
+      [disabled]="actionLoading"
+      aria-label="Alle Daten loeschen"
+      title="Alle Daten loeschen"
+    >
+      <span class="theme-toggle-icon" aria-hidden="true">!</span>
+      <span>Alles loeschen</span>
+    </button>
+
     <section class="sidebar-card nav-card">
       <h3>Navigation</h3>
       <nav class="sidebar-nav">
