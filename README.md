@@ -1,3 +1,1 @@
-Backe backe kuchn
-Da horvath hat gerufn
-Er hot kan bock mehr, ned
+11.05.2026 - 12:50 - Saler is richtig mad!
