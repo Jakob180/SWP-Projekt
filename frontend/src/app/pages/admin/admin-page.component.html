@@ -1,0 +1,81 @@
+<main class="admin-page">
+  <header>
+    <div>
+      <p class="kicker">Harbor Finance</p>
+      <h1>Admin Panel</h1>
+      <p>Benutzer verwalten und Rollen vergeben.</p>
+    </div>
+    <a routerLink="/dashboard">Zum Dashboard</a>
+  </header>
+
+  <section class="admin-summary">
+    <article>
+      <span>Benutzer</span>
+      <strong>{{ users.length }}</strong>
+    </article>
+    <article>
+      <span>Admins</span>
+      <strong>{{ adminCount }}</strong>
+    </article>
+    <article>
+      <span>Angemeldet</span>
+      <strong>{{ currentUsername }}</strong>
+    </article>
+  </section>
+
+  <p class="success" *ngIf="message">{{ message }}</p>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="loading" *ngIf="loading">Admin-Daten werden geladen...</p>
+
+  <section class="admin-card" *ngIf="!loading">
+    <div class="card-head">
+      <h2>Benutzerrollen</h2>
+      <button type="button" (click)="loadUsers()">Aktualisieren</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>E-Mail</th>
+            <th>Rolle</th>
+            <th>Aktion</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of users">
+            <td>
+              <strong>{{ user.username }}</strong>
+              <span *ngIf="user.username === currentUsername">Du</span>
+            </td>
+            <td>{{ user.email || '-' }}</td>
+            <td>
+              <span class="role-badge" [class.admin]="user.role === 'ADMIN'">{{ getRoleLabel(user.role) }}</span>
+            </td>
+            <td>
+              <div class="role-actions">
+                <button
+                  type="button"
+                  [class.active]="user.role === 'USER'"
+                  [disabled]="actionLoadingUserId === user.id"
+                  (click)="setRole(user, 'USER')"
+                >
+                  Benutzer
+                </button>
+                <button
+                  type="button"
+                  [class.active]="user.role === 'ADMIN'"
+                  [disabled]="actionLoadingUserId === user.id"
+                  (click)="setRole(user, 'ADMIN')"
+                >
+                  Admin
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
