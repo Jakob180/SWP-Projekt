@@ -83,16 +83,11 @@ export class AuthService {
     return localStorage.getItem(this.userStorageKey) ?? '';
   }
 
-  getRole(): string {
-    if (!this.isBrowser()) {
-      return 'USER';
-    }
-
-    return localStorage.getItem(this.roleStorageKey) ?? 'USER';
-  }
-
   isAdmin(): boolean {
-    return this.getRole() === 'ADMIN';
+    if (!this.isBrowser()) {
+      return false;
+    }
+    return localStorage.getItem(this.roleStorageKey) === 'ADMIN';
   }
 
   isAuthenticated(): boolean {

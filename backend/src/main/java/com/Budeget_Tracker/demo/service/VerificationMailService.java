@@ -19,7 +19,7 @@ public class VerificationMailService {
 
     public VerificationMailService(
             ObjectProvider<JavaMailSender> mailSenderProvider,
-            @Value("${app.mail.from:noreply@finance-dashboard.local}") String fromAddress
+            @Value("${app.mail.from:noreply@budget-tracker.local}") String fromAddress
     ) {
         this.mailSender = mailSenderProvider.getIfAvailable();
         this.fromAddress = fromAddress;

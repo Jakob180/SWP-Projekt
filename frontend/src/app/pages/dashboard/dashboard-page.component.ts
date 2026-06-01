@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subscription as RxSubscription, interval } from 'rxjs';
 import { ChartPanelComponent } from '../../components/chart-panel/chart-panel.component';
 import { Asset, DashboardResponse, Subscription, Transaction, TransactionType } from '../../models/api.models';
 import { ApiService } from '../../services/api.service';
@@ -34,6 +35,11 @@ interface PendingBudgetConfirmation {
   overdraw: number;
 }
 
+interface CategoryOption {
+  label: string;
+  value: string;
+}
+
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
@@ -41,10 +47,14 @@ interface PendingBudgetConfirmation {
   templateUrl: './dashboard-page.component.html',
   styleUrl: './dashboard-page.component.css'
 })
-export class DashboardPageComponent implements OnInit {
+export class DashboardPageComponent implements OnInit, OnDestroy {
   private static readonly MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
   private static readonly THEME_STORAGE_KEY = 'finance_dashboard_theme';
   private static readonly BUDGET_STORAGE_KEY = 'finance_dashboard_budgets';
+  private static readonly AUTO_REFRESH_MS = 15000;
+
+  private autoRefreshSubscription?: RxSubscription;
+  private dashboardLoadSubscription?: RxSubscription;
 
   dashboard?: DashboardResponse;
   loading = true;
@@ -53,7 +63,7 @@ export class DashboardPageComponent implements OnInit {
   actionError = '';
   actionLoading = false;
 
-  filterMode: 'month' | 'year' | 'custom' = 'month';
+  filterMode: 'month' | 'year' | 'custom' | 'all' = 'month';
   customFrom = '';
   customTo = '';
 
@@ -99,11 +109,31 @@ export class DashboardPageComponent implements OnInit {
   readonly palette = ['#0ea5e9', '#06b6d4', '#14b8a6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
   readonly incomePalette = ['#22c55e', '#16a34a', '#84cc16', '#2dd4bf', '#38bdf8', '#4ade80'];
   readonly expensePalette = ['#ef4444', '#f97316', '#f59e0b', '#e11d48', '#fb7185', '#dc2626'];
+  readonly incomeCategories: CategoryOption[] = [
+    { value: 'Gehalt', label: 'Gehalt' },
+    { value: 'Freelance', label: 'Freelance' },
+    { value: 'Bonus', label: 'Bonus' },
+    { value: 'Verkauf', label: 'Verkauf' },
+    { value: 'Rueckerstattung', label: 'Rueckerstattung' },
+    { value: 'Investition', label: 'Investition' },
+    { value: 'Sonstige Einnahmen', label: 'Sonstige Einnahmen' }
+  ];
+  readonly expenseCategories: CategoryOption[] = [
+    { value: 'Lebensmittel', label: 'Lebensmittel' },
+    { value: 'Miete', label: 'Miete' },
+    { value: 'Transport', label: 'Transport' },
+    { value: 'Shopping', label: 'Shopping' },
+    { value: 'Freizeit', label: 'Freizeit' },
+    { value: 'Gesundheit', label: 'Gesundheit' },
+    { value: 'Fixkosten', label: 'Fixkosten' },
+    { value: 'Versicherung', label: 'Versicherung' },
+    { value: 'Sonstige Ausgaben', label: 'Sonstige Ausgaben' }
+  ];
   readonly sidebarNavItems: SidebarNavItem[] = [
-    { id: 'overview', label: 'Uebersicht', shortLabel: 'Ue', icon: 'U' },
-    { id: 'income', label: 'Einnahmen', shortLabel: 'Ein', icon: '+' },
-    { id: 'expense', label: 'Ausgaben', shortLabel: 'Aus', icon: '-' },
-    { id: 'period', label: 'Zeitraum', shortLabel: 'Zeit', icon: 'Z' }
+    { id: 'overview', label: 'Uebersicht', shortLabel: 'Ue', icon: '◎' },
+    { id: 'income', label: 'Einnahmen', shortLabel: 'Ein', icon: '↗' },
+    { id: 'expense', label: 'Ausgaben', shortLabel: 'Aus', icon: '↘' },
+    { id: 'period', label: 'Zeitraum', shortLabel: 'Zeit', icon: '◴' }
   ];
 
   constructor(
@@ -117,7 +147,14 @@ export class DashboardPageComponent implements OnInit {
     this.initializeSidebar();
     this.initializeTheme();
     this.initializeBudgets();
+    this.ensureValidTransactionCategory();
     this.applyInitialRange();
+    this.startAutoRefresh();
+  }
+
+  ngOnDestroy(): void {
+    this.autoRefreshSubscription?.unsubscribe();
+    this.dashboardLoadSubscription?.unsubscribe();
   }
 
   get username(): string {
@@ -142,6 +179,22 @@ export class DashboardPageComponent implements OnInit {
   }
 
   get currentViewSubtitle(): string {
+    if (this.filterMode === 'all' || (!this.activeFrom && !this.activeTo)) {
+      if (this.activeView === 'period') {
+        return `Vergleich auf ${this.trendGranularityLabel}-Basis ueber die Gesamtzeit`;
+      }
+
+      if (this.activeView === 'income') {
+        return 'Einnahmen ueber die Gesamtzeit';
+      }
+
+      if (this.activeView === 'expense') {
+        return 'Ausgaben ueber die Gesamtzeit';
+      }
+
+      return 'Uebersicht ueber die Gesamtzeit';
+    }
+
     const fromLabel = this.formatDateLabel(this.activeFrom);
     const toLabel = this.formatDateLabel(this.activeTo);
 
@@ -242,13 +295,19 @@ export class DashboardPageComponent implements OnInit {
     return this.activeView === 'overview';
   }
 
+  get transactionCategoryOptions(): CategoryOption[] {
+    return this.transactionType === 'INCOME' ? this.incomeCategories : this.expenseCategories;
+  }
+
   setView(view: DashboardView): void {
     this.activeView = view;
 
     if (view === 'income') {
       this.transactionType = 'INCOME';
+      this.ensureValidTransactionCategory();
     } else if (view === 'expense') {
       this.transactionType = 'EXPENSE';
+      this.ensureValidTransactionCategory();
     }
   }
 
@@ -267,10 +326,19 @@ export class DashboardPageComponent implements OnInit {
 
   setTransactionType(type: TransactionType): void {
     this.transactionType = type;
+    this.ensureValidTransactionCategory();
   }
 
-  applyPreset(mode: 'month' | 'year'): void {
+  applyPreset(mode: 'month' | 'year' | 'all'): void {
     this.filterMode = mode;
+
+    if (mode === 'all') {
+      this.customFrom = '';
+      this.customTo = '';
+      this.loadDashboard();
+      return;
+    }
+
     const today = new Date();
 
     if (mode === 'month') {
@@ -324,7 +392,7 @@ export class DashboardPageComponent implements OnInit {
         this.applyTransactionLocally(createdTransaction);
 
         this.transactionAmount = null;
-        this.transactionCategory = '';
+        this.transactionCategory = this.getDefaultCategoryForType(savedType);
         this.transactionDescription = '';
         if (this.activeView === 'income') {
           this.transactionType = 'INCOME';
@@ -483,13 +551,14 @@ export class DashboardPageComponent implements OnInit {
     }).format(value ?? 0);
   }
 
-  private loadDashboard(from: string, to: string): void {
+  private loadDashboard(from?: string, to?: string): void {
+    this.dashboardLoadSubscription?.unsubscribe();
     this.loading = true;
     this.errorMessage = '';
-    this.activeFrom = from;
-    this.activeTo = to;
+    this.activeFrom = from ?? '';
+    this.activeTo = to ?? '';
 
-    this.apiService.getDashboard({ from, to }).subscribe({
+    this.dashboardLoadSubscription = this.apiService.getDashboard({ from, to }).subscribe({
       next: (dashboard) => {
         this.dashboard = dashboard;
         this.rebuildVisualSeries();
@@ -501,6 +570,45 @@ export class DashboardPageComponent implements OnInit {
         this.errorMessage = error?.error?.message ?? 'Dashboard-Daten konnten nicht geladen werden.';
       }
     });
+  }
+
+  private startAutoRefresh(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    this.autoRefreshSubscription?.unsubscribe();
+    this.autoRefreshSubscription = interval(DashboardPageComponent.AUTO_REFRESH_MS).subscribe(() => {
+      if (this.loading || this.actionLoading || document.hidden) {
+        return;
+      }
+
+      this.reloadCurrentFilter();
+    });
+  }
+
+  private reloadCurrentFilter(): void {
+    if (this.filterMode === 'all') {
+      this.loadDashboard();
+      return;
+    }
+
+    const from = this.activeFrom || this.customFrom;
+    const to = this.activeTo || this.customTo;
+    this.loadDashboard(from || undefined, to || undefined);
+  }
+
+  private ensureValidTransactionCategory(): void {
+    const options = this.transactionCategoryOptions;
+    if (!options.some((option) => option.value === this.transactionCategory)) {
+      this.transactionCategory = options[0]?.value ?? '';
+    }
+  }
+
+  private getDefaultCategoryForType(type: TransactionType): string {
+    return type === 'INCOME'
+      ? (this.incomeCategories[0]?.value ?? '')
+      : (this.expenseCategories[0]?.value ?? '');
   }
 
   private toDateInput(date: Date): string {

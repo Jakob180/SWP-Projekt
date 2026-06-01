@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { AdminUser, UserRole } from '../../models/api.models';
 import { ApiService } from '../../services/api.service';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -21,7 +21,8 @@ export class AdminPageComponent implements OnInit {
 
   constructor(
     private readonly apiService: ApiService,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+    private readonly cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -44,6 +45,7 @@ export class AdminPageComponent implements OnInit {
       next: (users) => {
         this.users = users;
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: (error) => {
         if (error?.status === 401 || error?.status === 403) {
@@ -52,6 +54,7 @@ export class AdminPageComponent implements OnInit {
           this.errorMessage = 'Admin-Daten konnten nicht geladen werden.';
         }
         this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -70,10 +73,12 @@ export class AdminPageComponent implements OnInit {
         this.users = this.users.map((item) => item.id === updatedUser.id ? updatedUser : item);
         this.message = `${updatedUser.username} ist jetzt ${this.getRoleLabel(updatedUser.role)}.`;
         this.actionLoadingUserId = null;
+        this.cdr.detectChanges();
       },
       error: (error) => {
         this.errorMessage = error?.error?.message ?? 'Rolle konnte nicht geaendert werden.';
         this.actionLoadingUserId = null;
+        this.cdr.detectChanges();
       }
     });
   }

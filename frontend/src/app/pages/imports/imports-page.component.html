@@ -1,23 +1,25 @@
 <main class="imports-shell">
   <header class="imports-header">
     <div>
-      <p class="kicker">Harbor Finance</p>
+      <p class="kicker">Budget Tracker</p>
       <h1>Datei-Importe</h1>
-      <p>CSV, JSON und Dokumente an einem Ort verwalten.</p>
+      <p>Importe, Belege und Exportdateien an einem zentralen Ort organisieren.</p>
     </div>
     <a routerLink="/dashboard" class="back-link">Zurueck zum Dashboard</a>
   </header>
 
   <section class="imports-grid">
     <article class="imports-card">
+      <p class="card-tag">Transaktionen</p>
       <h2>Bankexport importieren</h2>
-      <p>Importiert Transaktionen aus CSV- oder JSON-Dateien.</p>
+      <p>Importiere CSV- oder JSON-Dateien und uebernimm Buchungen direkt in dein Dashboard.</p>
       <app-upload (importFinished)="onBankImportFinished($event)"></app-upload>
     </article>
 
     <article class="imports-card">
+      <p class="card-tag">Dokumentenablage</p>
       <h2>Dokumente hochladen</h2>
-      <p>Lege PDF-, CSV- oder JSON-Dateien als Dokumentenablage ab.</p>
+      <p>Lege PDF-, CSV- oder JSON-Dateien lokal als schnelle Ablage fuer spaetere Referenzen ab.</p>
 
       <input type="file" multiple accept=".pdf,.csv,.json,.txt,.jpg,.jpeg,.png" (change)="onDocumentsSelected($event)" />
 

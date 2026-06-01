@@ -20,19 +20,24 @@ public class JwtService {
 
     private final String jwtSecret;
     private final long jwtExpirationMs;
+    private final String jwtIssuer;
 
     public JwtService(
             @Value("${jwt.secret}") String jwtSecret,
-            @Value("${jwt.expiration-ms}") long jwtExpirationMs
+            @Value("${jwt.expiration-ms}") long jwtExpirationMs,
+            @Value("${jwt.issuer}") String jwtIssuer
     ) {
         this.jwtSecret = jwtSecret;
         this.jwtExpirationMs = jwtExpirationMs;
+        this.jwtIssuer = jwtIssuer;
     }
 
     public String generateToken(AppUser user) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(user.getUsername())
+                .issuer(jwtIssuer)
+                .claim("uid", user.getId())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(jwtExpirationMs)))
                 .signWith(getSigningKey())
@@ -55,6 +60,7 @@ public class JwtService {
     private <T> T extractClaim(String token, Function<Claims, T> claimResolver) {
         Claims claims = Jwts.parser()
                 .verifyWith((javax.crypto.SecretKey) getSigningKey())
+                .requireIssuer(jwtIssuer)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

@@ -67,12 +67,21 @@
 .imports-card {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
+  border-radius: 20px;
   box-shadow: var(--panel-shadow);
-  padding: 0.9rem;
+  padding: 1rem;
   display: grid;
   align-content: start;
   gap: 0.72rem;
+}
+
+.card-tag {
+  margin: 0;
+  color: var(--accent-primary);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .imports-card h2 {
