@@ -27,6 +27,13 @@ interface BudgetStatus {
   state: BudgetState;
 }
 
+interface PendingBudgetConfirmation {
+  category: string;
+  budget: number;
+  spent: number;
+  overdraw: number;
+}
+
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
@@ -69,6 +76,7 @@ export class DashboardPageComponent implements OnInit {
   budgetMessage = '';
   budgetError = '';
   budgetStatuses: BudgetStatus[] = [];
+  pendingBudgetConfirmation: PendingBudgetConfirmation | null = null;
   private readonly budgets = new Map<string, number>();
 
   sidebarCollapsed = false;
@@ -114,6 +122,10 @@ export class DashboardPageComponent implements OnInit {
 
   get username(): string {
     return this.authService.getUsername();
+  }
+
+  get isAdmin(): boolean {
+    return this.authService.isAdmin();
   }
 
   get currentViewTitle(): string {
@@ -801,12 +813,46 @@ export class DashboardPageComponent implements OnInit {
       return;
     }
 
-    this.budgets.set(category, this.round(this.budgetAmount));
+    const budget = this.round(this.budgetAmount);
+    const spent = this.getSpentForBudgetCategory(category);
+    if (spent > budget) {
+      this.pendingBudgetConfirmation = {
+        category,
+        budget,
+        spent,
+        overdraw: this.round(spent - budget)
+      };
+      this.budgetError = '';
+      this.budgetMessage = '';
+      return;
+    }
+
+    this.saveBudget(category, budget);
+  }
+
+  confirmBudgetOverdraw(): void {
+    if (!this.pendingBudgetConfirmation) {
+      return;
+    }
+
+    const { category, budget } = this.pendingBudgetConfirmation;
+    this.saveBudget(category, budget);
+  }
+
+  cancelBudgetOverdraw(): void {
+    this.pendingBudgetConfirmation = null;
+    this.budgetError = 'Budget wurde nicht gespeichert.';
+    this.budgetMessage = '';
+  }
+
+  private saveBudget(category: string, budget: number): void {
+    this.budgets.set(category, budget);
     this.persistBudgets();
     this.rebuildBudgetStatuses();
 
     this.budgetCategory = '';
     this.budgetAmount = null;
+    this.pendingBudgetConfirmation = null;
     this.budgetError = '';
     this.budgetMessage = 'Budget gespeichert.';
   }
@@ -905,6 +951,23 @@ export class DashboardPageComponent implements OnInit {
     localStorage.setItem(DashboardPageComponent.BUDGET_STORAGE_KEY, JSON.stringify(payload));
   }
 
+  private getSpentForBudgetCategory(category: string): number {
+    const transactions = this.dashboard?.transactions ?? [];
+    const budgetCategoryKey = this.normalizeBudgetCategoryKey(category);
+    const spent = transactions
+      .filter((transaction) => {
+        return transaction.type === 'EXPENSE'
+          && this.normalizeBudgetCategoryKey(this.getDisplayCategory(transaction)) === budgetCategoryKey;
+      })
+      .reduce((sum, transaction) => sum + (Number(transaction.amount) || 0), 0);
+
+    return this.round(spent);
+  }
+
+  private normalizeBudgetCategoryKey(category: string): string {
+    return category.trim().toLocaleLowerCase('de-AT');
+  }
+
   private rebuildBudgetStatuses(): void {
     const transactions = this.dashboard?.transactions ?? [];
     const spentByCategory = new Map<string, number>();
@@ -913,13 +976,13 @@ export class DashboardPageComponent implements OnInit {
       if (transaction.type !== 'EXPENSE') {
         continue;
       }
-      const category = this.getDisplayCategory(transaction);
+      const category = this.normalizeBudgetCategoryKey(this.getDisplayCategory(transaction));
       spentByCategory.set(category, (spentByCategory.get(category) ?? 0) + (Number(transaction.amount) || 0));
     }
 
     const statuses: BudgetStatus[] = [];
     for (const [category, budget] of this.budgets.entries()) {
-      const spent = this.round(spentByCategory.get(category) ?? 0);
+      const spent = this.round(spentByCategory.get(this.normalizeBudgetCategoryKey(category)) ?? 0);
       const remaining = this.round(budget - spent);
       const usagePercentRaw = budget > 0 ? (spent / budget) * 100 : 0;
       const usagePercent = this.round(Math.max(0, usagePercentRaw));

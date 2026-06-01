@@ -17,6 +17,7 @@ import {
 export class AuthService {
   private readonly tokenStorageKey = 'finance_dashboard_token';
   private readonly userStorageKey = 'finance_dashboard_user';
+  private readonly roleStorageKey = 'finance_dashboard_role';
   private readonly pendingVerificationStorageKey = 'finance_dashboard_pending_verification';
   private readonly requestTimeoutMs = 10000;
 
@@ -61,6 +62,7 @@ export class AuthService {
     if (this.isBrowser()) {
       localStorage.removeItem(this.tokenStorageKey);
       localStorage.removeItem(this.userStorageKey);
+      localStorage.removeItem(this.roleStorageKey);
     }
     this.authenticatedSubject.next(false);
   }
@@ -79,6 +81,18 @@ export class AuthService {
     }
 
     return localStorage.getItem(this.userStorageKey) ?? '';
+  }
+
+  getRole(): string {
+    if (!this.isBrowser()) {
+      return 'USER';
+    }
+
+    return localStorage.getItem(this.roleStorageKey) ?? 'USER';
+  }
+
+  isAdmin(): boolean {
+    return this.getRole() === 'ADMIN';
   }
 
   isAuthenticated(): boolean {
@@ -126,6 +140,7 @@ export class AuthService {
     if (this.isBrowser()) {
       localStorage.setItem(this.tokenStorageKey, response.token);
       localStorage.setItem(this.userStorageKey, response.username);
+      localStorage.setItem(this.roleStorageKey, response.role);
       localStorage.removeItem(this.pendingVerificationStorageKey);
     }
     this.authenticatedSubject.next(true);

@@ -2,6 +2,8 @@ package com.Budeget_Tracker.demo.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -23,6 +25,10 @@ public class AppUser {
 
     @Column(nullable = false)
     private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserRole role = UserRole.USER;
 
     public Long getId() {
         return id;
@@ -54,6 +60,14 @@ public class AppUser {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
+    public void setRole(UserRole role) {
+        this.role = role;
     }
 
 }

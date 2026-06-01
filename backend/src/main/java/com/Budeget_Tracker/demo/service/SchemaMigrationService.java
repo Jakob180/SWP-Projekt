@@ -21,12 +21,19 @@ public class SchemaMigrationService {
     }
 
     @PostConstruct
-    public void ensureEmailColumnExists() {
+    public void ensureUserColumnsExist() {
         try (Connection connection = dataSource.getConnection()) {
             if (!hasColumn(connection, "users", "email")) {
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL");
                     log.info("Added users.email column");
+                }
+            }
+
+            if (!hasColumn(connection, "users", "role")) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'USER'");
+                    log.info("Added users.role column");
                 }
             }
 
@@ -37,9 +44,14 @@ public class SchemaMigrationService {
                         SET u.email = p.email
                         WHERE u.email IS NULL OR u.email = ''
                         """);
+                statement.execute("""
+                        UPDATE users
+                        SET role = 'ADMIN'
+                        WHERE LOWER(username) = 'admin'
+                        """);
             }
         } catch (Exception ex) {
-            log.warn("Schema migration for users.email failed: {}", ex.getMessage());
+            log.warn("Schema migration for users failed: {}", ex.getMessage());
         }
     }
 

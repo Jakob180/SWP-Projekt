@@ -1,4 +1,5 @@
 export type TransactionType = 'INCOME' | 'EXPENSE';
+export type UserRole = 'USER' | 'ADMIN';
 
 export interface AuthRequest {
   identifier: string;
@@ -33,7 +34,15 @@ export interface MessageResponse {
 export interface AuthResponse {
   userId: number;
   username: string;
+  role: UserRole;
   token: string;
+}
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  email: string | null;
+  role: UserRole;
 }
 
 export type VerificationMode = 'register' | 'password';

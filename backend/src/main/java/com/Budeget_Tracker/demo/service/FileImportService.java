@@ -40,7 +40,12 @@ public class FileImportService {
     private static final Set<String> DATE_HEADERS = Set.of("date", "bookingdate", "transactiondate", "valuedate", "datum");
     private static final Set<String> TYPE_HEADERS = Set.of("type", "transactiontype", "buchungstyp");
     private static final Set<String> CATEGORY_HEADERS = Set.of("category", "kategorie");
-    private static final Set<String> DESCRIPTION_HEADERS = Set.of("description", "note", "details", "text", "verwendungszweck");
+    private static final Set<String> DESCRIPTION_HEADERS = Set.of(
+            "description", "note", "details", "text", "verwendungszweck", "bookingdetails"
+    );
+    private static final Set<String> PARTNER_NAME_HEADERS = Set.of(
+            "partnername", "payee", "recipient", "empfaenger", "empfanger", "name"
+    );
 
     private static final int ELBA_BOOKING_DATE_INDEX = 0;
     private static final int ELBA_DESCRIPTION_INDEX = 1;
@@ -198,7 +203,8 @@ public class FileImportService {
     private TransactionRequest parseCsvRecordWithHeaders(CSVRecord record) {
         String amountRaw = getFirst(record, "amount", "value", "sum", "betrag", "umsatz");
         String dateRaw = getFirst(record, "date", "bookingDate", "transactionDate", "valueDate", "datum");
-        String rawDescription = getFirst(record, "description", "note", "details", "text", "verwendungszweck");
+        String rawDescription = getFirst(record, "description", "note", "details", "text", "verwendungszweck", "bookingDetails");
+        String partnerName = getFirst(record, "partnerName", "payee", "recipient", "empfaenger", "empfanger", "name");
 
         if ((amountRaw == null || dateRaw == null) && looksLikeElbaRow(record)) {
             return parseElbaRecord(record);
@@ -213,7 +219,7 @@ public class FileImportService {
 
         BigDecimal amount = parseAmount(amountRaw);
         TransactionType type = parseType(getFirst(record, "type", "transactionType", "buchungstyp"), amount);
-        String description = sanitizeDescription(rawDescription);
+        String description = sanitizeDescription(mergeDescription(partnerName, rawDescription));
 
         String category = Optional.ofNullable(getFirst(record, "category", "kategorie"))
                 .map(this::sanitizeCategory)
@@ -303,7 +309,8 @@ public class FileImportService {
                     || DATE_HEADERS.contains(normalized)
                     || TYPE_HEADERS.contains(normalized)
                     || CATEGORY_HEADERS.contains(normalized)
-                    || DESCRIPTION_HEADERS.contains(normalized)) {
+                    || DESCRIPTION_HEADERS.contains(normalized)
+                    || PARTNER_NAME_HEADERS.contains(normalized)) {
                 return true;
             }
         }
@@ -581,6 +588,23 @@ public class FileImportService {
         }
 
         return normalized;
+    }
+
+    private String mergeDescription(String primary, String secondary) {
+        String left = primary == null ? "" : primary.trim();
+        String right = secondary == null ? "" : secondary.trim();
+
+        if (left.isEmpty()) {
+            return right;
+        }
+        if (right.isEmpty()) {
+            return left;
+        }
+        if (right.regionMatches(true, 0, left, 0, left.length())) {
+            return right;
+        }
+
+        return left + " - " + right;
     }
 
     private LocalDate parseDate(String rawDate) {

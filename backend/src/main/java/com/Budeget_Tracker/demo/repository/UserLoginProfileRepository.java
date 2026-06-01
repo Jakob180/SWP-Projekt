@@ -12,4 +12,6 @@ public interface UserLoginProfileRepository extends JpaRepository<UserLoginProfi
     Optional<UserLoginProfile> findByEmailIgnoreCase(String email);
 
     boolean existsByEmailIgnoreCase(String email);
+
+    void deleteByUsername(String username);
 }

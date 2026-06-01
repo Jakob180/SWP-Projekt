@@ -67,7 +67,10 @@
           <h1>{{ currentViewTitle }}</h1>
           <p>{{ currentViewSubtitle }}</p>
         </div>
-        <a class="imports-link" routerLink="/imports">Dateien hochladen</a>
+        <div class="header-actions">
+          <a class="imports-link" routerLink="/imports">Dateien hochladen</a>
+          <a class="imports-link admin-link" routerLink="/admin" *ngIf="isAdmin">Admin Panel</a>
+        </div>
       </div>
     </header>
 
@@ -301,38 +304,60 @@
     <section class="budget-section" *ngIf="dashboard && showExpenseSections">
       <article class="budget-card">
         <div class="budget-head">
-          <h3>Kategorie-Budgets</h3>
-          <p>Limits fuer den aktuell geladenen Zeitraum</p>
+          <div>
+            <h3>Kategorie-Budgets</h3>
+            <p>Limits fuer den aktuell geladenen Zeitraum</p>
+          </div>
+          <span class="budget-count">{{ budgetStatuses.length }} aktiv</span>
         </div>
 
         <div class="budget-form">
           <label>
-            Kategorie
+            <span>Kategorie</span>
             <input type="text" [(ngModel)]="budgetCategory" placeholder="z.B. Essen" />
           </label>
           <label>
-            Budget
+            <span>Budget</span>
             <input type="number" step="0.01" min="0.01" [(ngModel)]="budgetAmount" placeholder="0.00" />
           </label>
-          <button type="button" (click)="addOrUpdateBudget()">Budget speichern</button>
+          <button type="button" class="budget-save" (click)="addOrUpdateBudget()">Speichern</button>
         </div>
 
         <p class="success" *ngIf="budgetMessage">{{ budgetMessage }}</p>
         <p class="error" *ngIf="budgetError">{{ budgetError }}</p>
+
+        <div class="budget-confirm" *ngIf="pendingBudgetConfirmation as pending">
+          <div>
+            <h4>Budget ueberziehen?</h4>
+            <p>
+              Fuer {{ pending.category }} wurden bereits {{ formatCurrency(pending.spent) }} ausgegeben.
+              Das neue Budget waere um {{ formatCurrency(pending.overdraw) }} ueberzogen.
+            </p>
+          </div>
+          <div class="budget-confirm-actions">
+            <button type="button" class="budget-confirm-yes" (click)="confirmBudgetOverdraw()">Trotzdem speichern</button>
+            <button type="button" class="budget-confirm-no" (click)="cancelBudgetOverdraw()">Abbrechen</button>
+          </div>
+        </div>
 
         <p class="empty-row" *ngIf="budgetStatuses.length === 0">Noch keine Budgets vorhanden.</p>
 
         <div class="budget-list" *ngIf="budgetStatuses.length > 0">
           <article class="budget-item" *ngFor="let budget of budgetStatuses">
             <div class="budget-item-head">
-              <h4>{{ budget.category }}</h4>
+              <div>
+                <h4>{{ budget.category }}</h4>
+                <p>{{ formatCurrency(budget.spent) }} von {{ formatCurrency(budget.budget) }}</p>
+              </div>
               <button type="button" class="budget-remove" (click)="removeBudget(budget.category)">Entfernen</button>
             </div>
 
             <div class="budget-numbers">
-              <span>{{ formatCurrency(budget.spent) }} / {{ formatCurrency(budget.budget) }}</span>
               <span class="budget-state" [class.ok]="budget.state === 'ok'" [class.warn]="budget.state === 'warn'" [class.over]="budget.state === 'over'">
                 {{ getBudgetStateLabel(budget.state) }} ({{ budget.usagePercent }}%)
+              </span>
+              <span class="budget-left" [class.negative]="budget.remaining < 0">
+                {{ budget.remaining < 0 ? 'Drueber' : 'Uebrig' }}: {{ formatCurrency(abs(budget.remaining)) }}
               </span>
             </div>
 
@@ -346,7 +371,7 @@
             </div>
 
             <p class="budget-remaining" [class.negative]="budget.remaining < 0">
-              {{ budget.remaining < 0 ? 'Ueberschreitung: ' : 'Restbudget: ' }}{{ formatCurrency(abs(budget.remaining)) }}
+              {{ budget.remaining < 0 ? 'Budget wurde fuer diesen Zeitraum ueberzogen.' : 'Budget liegt im Rahmen.' }}
             </p>
           </article>
         </div>

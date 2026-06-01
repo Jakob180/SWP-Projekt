@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, timeout } from 'rxjs';
 import {
+  AdminUser,
   AssetRequest,
   Asset,
   DashboardResponse,
@@ -16,6 +17,8 @@ import { API_BASE_URL } from './api.base';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
+  private readonly requestTimeoutMs = 10000;
+
   constructor(private readonly http: HttpClient) {}
 
   getDashboard(filter: DateFilter = {}): Observable<DashboardResponse> {
@@ -70,5 +73,23 @@ export class ApiService {
 
   deleteAllData(): Observable<void> {
     return this.http.delete<void>(`${API_BASE_URL}/dashboard/all-data`);
+  }
+
+  getAdminUsers(): Observable<AdminUser[]> {
+    return this.http.get<AdminUser[]>(`${API_BASE_URL}/admin/users`).pipe(
+      timeout(this.requestTimeoutMs)
+    );
+  }
+
+  updateAdminUserRole(userId: number, role: 'USER' | 'ADMIN'): Observable<AdminUser> {
+    return this.http.patch<AdminUser>(`${API_BASE_URL}/admin/users/${userId}/role`, { role }).pipe(
+      timeout(this.requestTimeoutMs)
+    );
+  }
+
+  deleteAdminUser(userId: number): Observable<void> {
+    return this.http.delete<void>(`${API_BASE_URL}/admin/users/${userId}`).pipe(
+      timeout(this.requestTimeoutMs)
+    );
   }
 }

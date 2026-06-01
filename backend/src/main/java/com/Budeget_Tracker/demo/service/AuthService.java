@@ -9,6 +9,7 @@ import com.Budeget_Tracker.demo.dto.auth.RegisterConfirmRequest;
 import com.Budeget_Tracker.demo.dto.auth.RegisterRequest;
 import com.Budeget_Tracker.demo.model.AppUser;
 import com.Budeget_Tracker.demo.model.UserLoginProfile;
+import com.Budeget_Tracker.demo.model.UserRole;
 import com.Budeget_Tracker.demo.repository.UserLoginProfileRepository;
 import com.Budeget_Tracker.demo.repository.UserRepository;
 import com.Budeget_Tracker.demo.security.JwtService;
@@ -79,6 +80,7 @@ public class AuthService {
         user.setUsername(pending.username());
         user.setEmail(pending.email());
         user.setPassword(pending.passwordHash());
+        user.setRole(resolveInitialRole(pending.username()));
 
         AppUser savedUser = userRepository.save(user);
         UserLoginProfile profile = new UserLoginProfile();
@@ -147,7 +149,15 @@ public class AuthService {
 
     private AuthResponse buildAuthResponse(AppUser user) {
         String token = jwtService.generateToken(user);
-        return new AuthResponse(user.getId(), user.getUsername(), token);
+        return new AuthResponse(user.getId(), user.getUsername(), user.getRole(), token);
+    }
+
+    private UserRole resolveInitialRole(String username) {
+        if ("admin".equalsIgnoreCase(username.trim())) {
+            return UserRole.ADMIN;
+        }
+
+        return UserRole.USER;
     }
 
     private String normalizeUsername(String username) {

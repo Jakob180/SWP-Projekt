@@ -9,4 +9,6 @@ public interface EmailVerificationCodeRepository extends JpaRepository<EmailVeri
     Optional<EmailVerificationCode> findByEmailAndPurpose(String email, VerificationPurpose purpose);
 
     void deleteByEmailAndPurpose(String email, VerificationPurpose purpose);
+
+    void deleteByEmail(String email);
 }
